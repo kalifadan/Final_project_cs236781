@@ -24,6 +24,7 @@ dependencies:
   - freetype>=2.10
   - h5py
   - wfdb
+  - Keras
   - pip
   - pip:
     - nbmerge
