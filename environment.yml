@@ -23,6 +23,7 @@ dependencies:
   - ffmpeg>4.1
   - freetype>=2.10
   - h5py
+  - wfdb
   - pip
   - pip:
     - nbmerge
