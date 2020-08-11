@@ -27,6 +27,7 @@ dependencies:
   - Keras
   - pywavelets
   - pip
+  - pycwt
   - pip:
     - nbmerge
     - pytest-xdist
