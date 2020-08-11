@@ -25,6 +25,7 @@ dependencies:
   - h5py
   - wfdb
   - Keras
+  - pywavelets
   - pip
   - pip:
     - nbmerge
