@@ -43,12 +43,14 @@ def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_se
             if batch_size is not None and samples_count == batch_size:
                 break
 
+    labels = np.array([1 if '(AFIB' in key else 0 for key in labels])
     return samples, labels
 
 
 def split_sample(record, sample_size_seconds=30, samples_per_second=250):
     sample = record.p_signal
-    samples = np.split(sample, sample_size_seconds*samples_per_second)
+    num_chunks = sample.shape[0] // (sample_size_seconds*samples_per_second)
+    samples = list(map(lambda x: x.T[0], np.split(sample, num_chunks)))
     return samples
 
 
@@ -59,6 +61,8 @@ class AFECGDataset(Dataset):
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
+
+
 
         self.samples, self.labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=10 * 60,
                                                  samples_per_second=samples_per_second, batch_size=batch_size)

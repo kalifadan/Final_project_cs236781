@@ -89,7 +89,7 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
     s0 = 8.33  # Starting scale, in this case 2 * 0.25 years = 6 months
     dj = 1 / 15  # Twelve sub-octaves per octaves
     J = 7 / dj  # Seven powers of two with dj sub-octaves
-    alpha, _, _ = wavelet.ar1(signal)  # Lag-1 autocorrelation for red noise
+    # alpha, _, _ = wavelet.ar1(signal)  # Lag-1 autocorrelation for red noise
 
     wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(dat_norm, dt, dj, s0, J, wl)
     # iwave = wavelet.icwt(wave, scales, dt, dj, wl) * std
@@ -98,9 +98,9 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
 
     power /= scales[:, None]
 
-    signif, fft_theor = wavelet.significance(1.0, dt, scales, 0, alpha, significance_level=significance_level, wavelet=wl)
-    sig_percentile = np.ones([1, N]) * signif[:, None]
-    sig_percentile = power / sig_percentile
+    # signif, fft_theor = wavelet.significance(1.0, dt, scales, 0, alpha, significance_level=significance_level, wavelet=wl)
+    # sig_percentile = np.ones([1, N]) * signif[:, None]
+    # sig_percentile = power / sig_percentile
 
     freqs = freqs
     # period = 1 / freqs
