@@ -1,4 +1,6 @@
 import wfdb
+from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.dataset import T_co
 
 
 def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per_second=250):
@@ -40,3 +42,27 @@ def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_se
                 break
 
     return samples, labels
+
+
+class AFECGDataset(Dataset):
+    """Artirial Fibrilation ECG dataset"""
+
+    def __init__(self, dataset_name, data_path) -> None:
+        super().__init__()
+        self.dataset_name = dataset_name
+        self.data_path = data_path
+
+    def __getitem__(self, index: int) -> T_co:
+        # TODO Implement
+        pass
+
+
+class WaveletTransform(object):
+
+    def __init__(self) -> None:
+        super().__init__()
+        # TODO Implement
+
+    def __call__(self, sample):
+        # TODO Implement
+        pass
