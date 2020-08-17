@@ -1,6 +1,7 @@
+import torch
 import wfdb
-from torch.utils.data import Dataset, DataLoader
-from torch.utils.data.dataset import T_co
+from torch.utils.data import Dataset
+import dsp
 
 
 def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per_second=250):
@@ -52,17 +53,38 @@ class AFECGDataset(Dataset):
         self.dataset_name = dataset_name
         self.data_path = data_path
 
-    def __getitem__(self, index: int) -> T_co:
+    def __getitem__(self, index: int):
         # TODO Implement
         pass
 
 
 class WaveletTransform(object):
+    """A Transform which enables a raw ECG signal to be transformed into a wavelet power spectrum, represented as
+    a PyTorch Tensor object"""
 
-    def __init__(self) -> None:
+    def __init__(self, wavelet=None, size=(800, 800)) -> None:
         super().__init__()
-        # TODO Implement
+        self.wavelet = wavelet
+        self.size = size
+        self.dpi = 72
 
     def __call__(self, sample):
+        """
+        Transform a single ECG signal into a 3-channel tensor image of a wavelet power spectrogram.
+        :param sample: The sample, an array of size (N,) where N is the window size (in samples)
+        :return: A Tensor of size (W, H, C) where WxH is the image size and C is the number of color channels
+        """
+        levels = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
+        signal = sample
+        time, frequencies, power = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet)
+        print(time.shape)
+        print(frequencies.shape)
+        np_image = dsp.wavelet_figure_to_numpy_image(time, signal, frequencies, power, self.size[0], self.size[1], self.dpi, levels=levels)
+        print(np_image.shape)
+        t = torch.from_numpy(np_image)
+        self._t = t
+        return t
+
+    def to_file(self, path):
         # TODO Implement
         pass

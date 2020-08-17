@@ -1,4 +1,5 @@
 from __future__ import division
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy import signal as sp
@@ -28,11 +29,12 @@ def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, l
     # Second sub-plot, the normalized wavelet power spectrum and significance
     # level contour lines and cone of influece hatched area. Note that period
     # scale is logarithmic.
-    levels = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
-    # print(period)
-    # print(power)
-    # print(levels)
-    ax2.contourf(time, np.log2(frequencies), np.log2(power), np.log2(levels), extend='both', cmap=plt.cm.gray)
+    levels = np.logspace(-5, 5, num=20, base=2)
+
+    print('Time: ', time.shape)
+    print('Frequencies: ', period.shape)
+    print('Power: ', power.shape)
+    ax2.contourf(time, np.log2(period), np.log2(power), np.log2(levels), extend='both', cmap=plt.cm.gray)
     extent = [time.min(), time.max(), 0, max(period)]
     # ax2.fill(np.concatenate([t, t[-1:] + dt, t[-1:] + dt,
     #                            t[:1] - dt, t[:1] - dt]),
@@ -42,17 +44,27 @@ def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, l
     ax2.set_title('b) Wavelet Power Spectrum ({})'.format(wavelet_name))
     ax2.set_ylabel('Frequency [Hz]')
     #
-    y_ticks = 2 ** np.arange(np.ceil(np.log2(frequencies.min())), np.ceil(np.log2(frequencies.max())))
+    y_ticks = 2 ** np.arange(np.ceil(np.log2(period.min())), np.ceil(np.log2(period.max())))
     ax2.set_yticks(np.log2(y_ticks))
     ax2.set_yticklabels(y_ticks)
-
     plt.show()
 
 
-def wavelet_decompose_power_spectrum(signal, title='', label='', units='',
-                                     wl=None,
+def wavelet_figure_to_numpy_image(time, signal, frequencies, power, width, height, dpi, levels=None):
+    if levels is None:
+        levels = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
+
+    fig, ax = plt.subplots(figsize=(width/dpi, height/dpi), dpi=dpi)
+    canvas = FigureCanvas(fig)
+    ax.axis('off')
+    ax.contourf(time, np.log2(frequencies), np.log2(power), np.log2(levels), extend='both', cmap=plt.cm.gray)
+    canvas.draw()
+    image = np.fromstring(canvas.tostring_rgb(), dtype='uint8').reshape((width, height, -1))
+    return image
+
+
+def wavelet_decompose_power_spectrum(signal, wl=None,
                                      significance_level=0.9,
-                                     omega=6,
                                      resample=None):
     if resample is not None:
         signal = sp.resample(signal, signal.shape[0] // resample)
@@ -71,7 +83,7 @@ def wavelet_decompose_power_spectrum(signal, title='', label='', units='',
     dat_norm = dat_notrend / std  # Normalized dataset
 
     if wl is None:
-        wl = wavelet.Morlet(omega)
+        wl = wavelet.Morlet(6)
 
     # TODO Check these hyperparams
     s0 = 8.33  # Starting scale, in this case 2 * 0.25 years = 6 months
@@ -81,8 +93,6 @@ def wavelet_decompose_power_spectrum(signal, title='', label='', units='',
 
     wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(dat_norm, dt, dj, s0, J, wl)
     # iwave = wavelet.icwt(wave, scales, dt, dj, wl) * std
-    print(scales)
-
     power = (np.abs(wave)) ** 2
     fft_power = np.abs(fft) ** 2
 
