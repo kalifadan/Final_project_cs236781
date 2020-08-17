@@ -1,7 +1,7 @@
 import torch
 import wfdb
-from torch.utils.data import Dataset
 import dsp
+from torch.utils.data import Dataset, DataLoader
 
 
 def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per_second=250):
@@ -45,17 +45,29 @@ def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_se
     return samples, labels
 
 
+def split_sample(record, sample_size_seconds=30, samples_per_second=250):
+    sample = record.p_signal
+    samples = np.split(sample, sample_size_seconds*samples_per_second)
+    return samples
+
+
 class AFECGDataset(Dataset):
     """Artirial Fibrilation ECG dataset"""
 
-    def __init__(self, dataset_name, data_path) -> None:
+    def __init__(self, dataset_name, data_path, samples_per_second=250, batch_size=None) -> None:
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
 
+        self.samples, self.labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=10 * 60,
+                                                 samples_per_second=samples_per_second, batch_size=batch_size)
+
     def __getitem__(self, index: int):
         # TODO Implement
-        pass
+        if index < 0 or index > len(self.samples):
+            return None
+        samples_per_interval = split_sample(self.samples[index])
+        return samples_per_interval, self.labels[index]
 
 
 class WaveletTransform(object):
