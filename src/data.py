@@ -1,9 +1,14 @@
+import os
+import time
+
 import torch
 import wfdb
 import dsp
 import numpy as np
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
+import pycwt as wavelet
+from tqdm import tqdm
 
 
 def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per_second=250):
@@ -48,27 +53,33 @@ def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_se
     return samples, labels
 
 
-def split_sample(record, sample_size_seconds=30, samples_per_second=250):
-    sample = record.p_signal
-    num_chunks = sample.shape[0] // (sample_size_seconds*samples_per_second)
-    samples = list(map(lambda x: x.T[0], np.split(sample, num_chunks)))
-    return samples
+def split_sample(record: wfdb.Record, sample_size_seconds=30, samples_per_second=250, device=None):
+    sample: torch.Tensor = torch.tensor(record.p_signal) \
+        .to(device) \
+        .transpose(0, 1)[0]
+    chunk_size = sample_size_seconds * samples_per_second
+    # TODO Cleanup
+    # print(sample.shape)
+    # print(chunk_size)
+    # num_chunks = sample.shape[0] // (sample_size_seconds*samples_per_second)
+    # samples = list(map(lambda x: x.T[0], torch.split(sample, num_chunks)))  # Need to select by [SQI_purity], not [0]
+    return sample.view(-1, chunk_size)
 
 
 class AFECGDataset(Dataset):
     """Artirial Fibrilation ECG dataset"""
 
-    def __init__(self, dataset_name, data_path, samples_per_second=250, batch_size=None) -> None:
+    def __init__(self, dataset_name, data_path, samples_per_second=250, transform=True) -> None:
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
+        self.samples_per_second = samples_per_second
+        self.transform = transform
+        self.samples = []
+        self.labels = []
+        # self.transform_samples = [split_sample(sample) for sample in self.samples]
 
-        self.samples, self.labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=10 * 60,
-                                                 samples_per_second=samples_per_second, batch_size=batch_size)
-
-        self.transform_samples = [split_sample(self.samples[i]) for i in range(len(self.samples))]
-
-    def get_len(self):
+    def __len__(self):
         return len(self.labels)
 
     def __getitem__(self, index: int):
@@ -76,18 +87,80 @@ class AFECGDataset(Dataset):
         if index < 0 or index > len(self.samples):
             return None
         # samples_per_interval = split_sample(self.samples[index])
-        return self.transform_samples[index], self.labels[index]
+        return self.samples[index], self.labels[index]
+
+    def load(self):
+        samples_per_second = self.samples_per_second
+        transform = self.transform
+        data, labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=10 * 60,
+                                    samples_per_second=samples_per_second)
+        labels = torch.tensor(labels)
+        transformed_samples = [split_sample(sample) for sample in data]
+        self.samples, self.labels = self._load_data(transformed_samples, labels) if transform else \
+            (transformed_samples, labels)
+
+    @staticmethod
+    def _load_data(data, labels, count=None, save_files=True):
+        directory = '../data/new'
+        sample_format = 'sample_{}.pt'
+        fmt = os.path.join(directory, sample_format)
+        to_wavelet = WaveletTransform(wavelet.Morlet(6), resample=20)
+
+        if save_files and not os.path.exists(directory):
+            os.makedirs(directory)
+
+        start = time.time()
+
+        if count is None:
+            count = len(data)
+        transformed_data = []
+        # transformed_labels= []
+
+        skip = 0
+        print('Preparing {} samples'.format(count))
+        for sample_idx, sample in tqdm(enumerate(data[:count])):
+            wavelets = []
+            filepath = fmt.format(sample_idx)
+
+            if os.path.isfile(filepath):
+                # print('Skip {},{}'.format(sample_idx, signal_idx))
+                t = torch.load(filepath)
+                skip += 1
+                transformed_data.append(t)
+                continue
+            # print(sample)
+            for signal_idx, signal in enumerate(sample):
+                # print(signal)
+                # filepath = fmt.format(sample_idx, signal_idx)
+                # if os.path.isfile(filepath):
+                # print('Skip {},{}'.format(sample_idx, signal_idx))
+                #     skip += 1
+                #     continue
+                wavelets.append(to_wavelet(signal))
+
+            t = torch.stack(wavelets)
+            # t = t.unsqueeze(1)
+            transformed_data.append(t)
+
+            if save_files:
+                torch.save(t, filepath)
+
+        end = time.time()
+        print('Elapsed time: {} ms'.format(1000 * (end - start)))
+        print('Skipped {} files which had a backup'.format(skip))
+        return transformed_data, labels
 
 
 class WaveletTransform(object):
     """A Transform which enables a raw ECG signal to be transformed into a wavelet power spectrum, represented as
     a PyTorch Tensor object"""
 
-    def __init__(self, wavelet=None, size=(800, 800)) -> None:
+    def __init__(self, wavelet=None, size=(800, 800), resample=None) -> None:
         super().__init__()
         self.wavelet = wavelet
         self.size = size
         self.dpi = 72
+        self.resample = resample
 
     def __call__(self, sample):
         """
@@ -97,11 +170,12 @@ class WaveletTransform(object):
         """
         levels = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
         signal = sample
-        time, frequencies, power = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet)
-        np_image = dsp.wavelet_figure_to_numpy_image(time, signal, frequencies, power, self.size[0], self.size[1], self.dpi, levels=levels)
-        t = torch.from_numpy(np_image)
+        time, frequencies, power, time = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet,
+                                                                              resample=self.resample)
+        # np_image = dsp.wavelet_figure_to_numpy_image(time, signal, frequencies, power, self.size[0], self.size[1], self.dpi, levels=levels)
+        # t = torch.from_numpy(np_image)
         plt.close()
-        self._t = t
+        t = torch.tensor(power)
         return t
 
     def to_file(self, path):

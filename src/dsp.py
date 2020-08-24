@@ -10,7 +10,7 @@ from pycwt.helpers import find
 
 def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, levels=None):
     if levels is None:
-        levels = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
+        levels = [-0.125, -0.0625, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
 
     period = 1 / frequencies
     # Prepare the figure
@@ -29,12 +29,12 @@ def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, l
     # Second sub-plot, the normalized wavelet power spectrum and significance
     # level contour lines and cone of influece hatched area. Note that period
     # scale is logarithmic.
-    levels = np.logspace(-5, 5, num=20, base=2)
+    # levels = np.logspace(-10, 10, num=20, base=2)
 
     print('Time: ', time.shape)
-    print('Frequencies: ', period.shape)
+    print('Frequencies: ', frequencies.shape)
     print('Power: ', power.shape)
-    ax2.contourf(time, np.log2(period), np.log2(power), np.log2(levels), extend='both', cmap=plt.cm.gray)
+    ax2.contourf(time, period, np.log2(power), extend='both', cmap=plt.cm.gray)
     extent = [time.min(), time.max(), 0, max(period)]
     # ax2.fill(np.concatenate([t, t[-1:] + dt, t[-1:] + dt,
     #                            t[:1] - dt, t[:1] - dt]),
@@ -44,9 +44,10 @@ def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, l
     ax2.set_title('b) Wavelet Power Spectrum ({})'.format(wavelet_name))
     ax2.set_ylabel('Frequency [Hz]')
     #
-    y_ticks = 2 ** np.arange(np.ceil(np.log2(period.min())), np.ceil(np.log2(period.max())))
-    ax2.set_yticks(np.log2(y_ticks))
-    ax2.set_yticklabels(y_ticks)
+    # y_ticks = np.arange(np.ceil(np.log2(period.min())), np.ceil(np.log2(period.max())))
+    # print(y_ticks)
+    # ax2.set_yticks(np.log2(y_ticks))
+    # ax2.set_yticklabels(y_ticks)
     plt.show()
 
 
@@ -86,9 +87,9 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
         wl = wavelet.Morlet(6)
 
     # TODO Check these hyperparams
-    s0 = 8.33  # Starting scale, in this case 2 * 0.25 years = 6 months
-    dj = 1 / 15  # Twelve sub-octaves per octaves
-    J = 7 / dj  # Seven powers of two with dj sub-octaves
+    s0 = 8.33  # Starting scale
+    dj = 1 / 15  # X sub-octaves per octaves
+    J = 19  # Seven powers of two with dj sub-octaves
     # alpha, _, _ = wavelet.ar1(signal)  # Lag-1 autocorrelation for red noise
 
     wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(dat_norm, dt, dj, s0, J, wl)
@@ -102,6 +103,5 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
     # sig_percentile = np.ones([1, N]) * signif[:, None]
     # sig_percentile = power / sig_percentile
 
-    freqs = freqs
     # period = 1 / freqs
-    return time, freqs, power
+    return time, np.array(freqs), power, signal
