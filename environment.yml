@@ -28,7 +28,11 @@ dependencies:
   - pywavelets
   - pip
   - pycwt
+  - python-graphviz
+  - xorg-libxrender
+  - xorg-libxpm
   - pip:
     - nbmerge
     - pytest-xdist
+    - torchviz
 
