@@ -166,11 +166,11 @@ class WaveletTransform(object):
         """
         Transform a single ECG signal into a 3-channel tensor image of a wavelet power spectrogram.
         :param sample: The sample, an array of size (N,) where N is the window size (in samples)
-        :return: A Tensor of size (W, H, C) where WxH is the image size and C is the number of color channels
+        :return: A Tensor of size (H, W) where WxH is the image size and each point is the power value of the specturm
+        at the given time a frequence (after downsampling)
         """
-        levels = [0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
         signal = sample
-        time, frequencies, power, time = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet,
+        time, frequencies, power, new_signal = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet,
                                                                               resample=self.resample)
         # np_image = dsp.wavelet_figure_to_numpy_image(time, signal, frequencies, power, self.size[0], self.size[1], self.dpi, levels=levels)
         # t = torch.from_numpy(np_image)

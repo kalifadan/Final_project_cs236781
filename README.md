@@ -3,6 +3,7 @@
 >
 > Date: September, 2020. 
 ## Authors
+
 * Dan Kalifa @ [Technion](mailto:kalifadan@campus.technion.ac.il)
 * Michael Mendelson-Mints @ [Technion](mailto:michael.me@campus.technion.ac.il)
 
