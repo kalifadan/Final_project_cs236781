@@ -53,6 +53,12 @@ class BRNN(nn.Module):
                                    batch_first=False, bidirectional=True)
 
     def forward(self, X):
+        """
+        Perform forward propagation on a batch of data
+        :param X: A tensor of shape (L, B, H) where L is the sequence length, H is the number of features
+        per sequence unit and B is the batch size
+        :return: A tensor of shape (L, B, 2 * H) containing the outputs of the BRNN
+        """
         output, hn = self.bi_rnn(X)
         return output
 
@@ -64,6 +70,13 @@ class SoftmaxAttention(nn.Module):
         torch.nn.init.xavier_uniform_(self.weight)
 
     def forward(self, X):
+        """
+        Perform forward propagation
+        :param X: A tensor of shape (T, B, N) where T is the sequence len, B is the batch size and N is the number of
+        features in each sequence node
+        :return: A tensor of shape (B, 1, N) representing the weighted attention features for each sample in the batch
+        """
+        print('ATT:', X.shape)
         # X [T, B, N]
         # weight [N x 1]
         batch_size = X.size(1)

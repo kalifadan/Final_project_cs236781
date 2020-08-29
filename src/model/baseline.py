@@ -37,19 +37,21 @@ class Baseline(nn.Module):
         # print('input #1: ', X[:, 0, :].float()[0][0])
         # print('input #2: ', X[:, 1, :].float()[0][0])
         # print(X[0,0,:].float().unsqueeze(1), X[0,1,:].float().unsqueeze(1))
-        X = X
         out = [self.cnn_layers[i](X[:, i, :].float().unsqueeze(1)) for i in range(self.seq_len)]
         out = torch.stack(out)
         # print('[After CNN]: ', (out[0][0] - out[0][1]).std())
         # print('Equal:', out[0][0] == out[0][1])
-        # print('After CNN: ', out[0][0], out[0][1])
+        print('After CNN: ', out.shape)
 
         # print('Before BRNN: ', out)
         out = self.brnn(out)
         # print('After BRNN: ', out.squeeze(1))
-        out = self.attention(out.squeeze(1))
+        # out = self.attention(out.squeeze(1))
+
+        out = self.attention(out)
+        print('After ATT: ', out.shape)
         out = out.squeeze(1)
-        # print('After ATT: ', out)
+        print('After ATT: ', out)
         # print('ATT Weights:', dict(self.attention.named_parameters())['weight'])
 
         out = self.fc(out)
