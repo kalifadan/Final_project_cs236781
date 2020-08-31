@@ -82,9 +82,8 @@ class AFECGDataset(Dataset):
     def __len__(self):
         return len(self.labels)
 
-    def __getitem__(self, index: int):
-        # TODO Implement
-        if index < 0 or index > len(self.samples):
+    def __getitem__(self, index):
+        if type(index) == int and index < 0 or index > len(self.samples):
             return None
         # samples_per_interval = split_sample(self.samples[index])
         return self.samples[index], self.labels[index]
@@ -155,11 +154,9 @@ class WaveletTransform(object):
     """A Transform which enables a raw ECG signal to be transformed into a wavelet power spectrum, represented as
     a PyTorch Tensor object"""
 
-    def __init__(self, wavelet=None, size=(800, 800), resample=None) -> None:
+    def __init__(self, wavelet=None, resample=None) -> None:
         super().__init__()
         self.wavelet = wavelet
-        self.size = size
-        self.dpi = 72
         self.resample = resample
 
     def __call__(self, sample):
@@ -171,7 +168,7 @@ class WaveletTransform(object):
         """
         signal = sample
         time, frequencies, power, new_signal = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet,
-                                                                              resample=self.resample)
+                                                                                    resample=self.resample)
         # np_image = dsp.wavelet_figure_to_numpy_image(time, signal, frequencies, power, self.size[0], self.size[1], self.dpi, levels=levels)
         # t = torch.from_numpy(np_image)
         plt.close()

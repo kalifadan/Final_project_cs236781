@@ -3,46 +3,73 @@ from torch import nn
 
 
 class ConvNet(nn.Module):
+    # @staticmethod
+    # def _calculate_layers_fc_size(layers, width):
+    #     size = -1
+    #     for layer in layers:
+    #         if isinstance(layer, nn.MaxPool2d):
+    #             size /= 2  # TODO Change
+    #         elif isinstance(layer, nn.Conv2d):
+    #             if size == -1:
+    #                 size =
+
     def __init__(self, size, in_channels=1):
         super().__init__()
         self.width, self.height = size
 
-        self.layer1 = nn.Sequential(
+        self.layers = [
             nn.Conv2d(in_channels, 10, kernel_size=(3, 21)),
             nn.ReLU(),
-        )
+            nn.MaxPool2d(kernel_size=(2, 2), stride=2),
 
-        self.layer2 = nn.Sequential(
-            nn.Conv2d(10, 10, kernel_size=(3, 21)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2)
-        )
+            # nn.Conv2d(10, 10, kernel_size=(3, 21)),
+            # nn.ReLU(),
+            # nn.MaxPool2d(kernel_size=(2, 2), stride=2),
 
-        self.layer3 = nn.Sequential(
-            nn.Conv2d(10, 10, kernel_size=(4, 21)),
-            nn.ReLU(),
-        )
+            # nn.Conv2d(10, 10, kernel_size=(4, 21)),
+            # nn.ReLU(),
+            #
+            # nn.Conv2d(10, 10, kernel_size=(4, 21)),
+            # nn.ReLU(),
+        ]
+        self.cnn = nn.Sequential(*self.layers)
 
-        self.layer4 = nn.Sequential(
-            nn.Conv2d(10, 10, kernel_size=(4, 21)),
-            nn.ReLU(),
-        )
+        # self.layer1 = nn.Sequential(
+        #     nn.Conv2d(in_channels, 10, kernel_size=(3, 21)),
+        #     nn.ReLU(),
+        # )
+        #
+        # self.layer2 = nn.Sequential(
+        #     nn.Conv2d(10, 10, kernel_size=(3, 21)),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2)
+        # )
+        #
+        # self.layer3 = nn.Sequential(
+        #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
+        #     nn.ReLU(),
+        # )
+        #
+        # self.layer4 = nn.Sequential(
+        #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
+        #     nn.ReLU(),
+        # )
 
-        self.fc = nn.Linear(2540, 50)
+        # self.fc = nn.Linear(2540, 50)
+        self.fc = nn.Linear(15930, 50)
+
+    def init_weights(self):
+        for m in self.layers:
+            if isinstance(m, nn.Conv2d):
+                m.weight.data.normal_(0, 50)
 
     def forward(self, x):
-        out = self.layer1(x)
+        out = self.cnn(x)
+        # print('After conv: ', out)
         # print(out.shape)
-        out = self.layer2(out)
-        # print(out.shape)
-        # out = out.reshape(out.size(0), -1)
-        out = self.layer3(out)
-        # print(out.shape)
-        out = self.layer4(out)
-        # print(out.shape)
-        out = out.reshape(out.size(0), -1)
+        out = out.flatten(start_dim=1)
         out = self.fc(out)
-        # print(out.shape)
+        # print('After conv-fc: ', out)
         return out
 
 
@@ -66,8 +93,9 @@ class BRNN(nn.Module):
 class SoftmaxAttention(nn.Module):
     def __init__(self, input_size):
         super().__init__()
-        self.weight = nn.Parameter(torch.FloatTensor(1, input_size))
-        torch.nn.init.xavier_uniform_(self.weight)
+        self.weight = nn.Parameter(torch.zeros(1, input_size), requires_grad=True)
+        torch.nn.init.xavier_uniform_(self.weight, 10)
+        # print(self.weight.data)
 
     def forward(self, X):
         """
@@ -76,7 +104,7 @@ class SoftmaxAttention(nn.Module):
         features in each sequence node
         :return: A tensor of shape (B, 1, N) representing the weighted attention features for each sample in the batch
         """
-        print('ATT:', X.shape)
+        # print('ATT:', X.shape)
         # X [T, B, N]
         # weight [N x 1]
         batch_size = X.size(1)

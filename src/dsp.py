@@ -87,7 +87,7 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
         wl = wavelet.Morlet(6)
 
     # TODO Check these hyperparams
-    s0 = 8.33  # Starting scale
+    s0 = 8.3  # Starting scale
     dj = 1 / 15  # X sub-octaves per octaves
     J = 19  # Seven powers of two with dj sub-octaves
     # alpha, _, _ = wavelet.ar1(signal)  # Lag-1 autocorrelation for red noise
