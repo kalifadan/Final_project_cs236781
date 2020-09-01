@@ -80,7 +80,7 @@ def train(model, dataset, config):
             #     print('Correct: {}'.format(correct))
             acc += correct
             iteration += 1
-            r_inner.set_description('Current loss: {}'.format(loss_list[-1]))
+            r_inner.set_description('Current loss: {:.2f}'.format(loss_list[-1]))
 
         acc = acc / total_size
         acc_list.append(acc)
