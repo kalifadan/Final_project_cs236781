@@ -16,7 +16,7 @@ def train(model, dataset, config):
     learning_rate = config['learning_rate']
     weight_decay = config['weight_decay']
     is_notebook = config['is_notebook']
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(weight=torch.tensor([0.3, 0.7]))
     optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # Preparation
@@ -35,8 +35,9 @@ def train(model, dataset, config):
             optimizer.zero_grad()
             batch_data.requires_grad = True
             # for b in batch_data:
-            #     print(b.sum())
-            output = model(batch_data)
+            #     print(b.sum().item(), end=', ')
+            print(batch_data[:, 0, :].shape)
+            output = model(batch_data[:, 0, :].unsqueeze(1).float())
 
             # print(output[:10])
             # print('Labels:', batch_labels)
@@ -53,12 +54,11 @@ def train(model, dataset, config):
             # Track the accuracy
             #         probability = torch.distributions.categorical.Categorical(output)
             #         prediction = probability.sample()
-            prediction = output.argmax(dim=1)
+            prediction = output.softmax(dim=1).argmax(dim=1)
 
-            # print('Output:', output[:50])
-
-            # print('Ground truth:', batch_labels)
-            # print('Prediction:', prediction)
+            print('Output:', output[:50])
+            print('Ground truth:', batch_labels[:50])
+            print('Prediction:', prediction[:50])
 
             correct = (prediction == batch_labels).sum().item()
             print('Correct: {}'.format(correct))

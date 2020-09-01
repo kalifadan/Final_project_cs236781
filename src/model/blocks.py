@@ -20,6 +20,7 @@ class ConvNet(nn.Module):
         self.layers = [
             nn.Conv2d(in_channels, 10, kernel_size=(3, 21)),
             nn.ReLU(),
+            # nn.LeakyReLU(negative_slope=0.2),
             nn.MaxPool2d(kernel_size=(2, 2), stride=2),
 
             # nn.Conv2d(10, 10, kernel_size=(3, 21)),
@@ -58,10 +59,10 @@ class ConvNet(nn.Module):
         # self.fc = nn.Linear(2540, 50)
         self.fc = nn.Linear(15930, 50)
 
-    def init_weights(self):
-        for m in self.layers:
-            if isinstance(m, nn.Conv2d):
-                m.weight.data.normal_(0, 50)
+    # def init_weights(self):
+    #     for m in self.layers:
+    #         if isinstance(m, nn.Conv2d):
+    #             m.weight.data.normal_(0, 50)
 
     def forward(self, x):
         out = self.cnn(x)
@@ -94,7 +95,7 @@ class SoftmaxAttention(nn.Module):
     def __init__(self, input_size):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(1, input_size), requires_grad=True)
-        torch.nn.init.xavier_uniform_(self.weight, 10)
+        torch.nn.init.xavier_uniform_(self.weight)
         # print(self.weight.data)
 
     def forward(self, X):
@@ -110,13 +111,12 @@ class SoftmaxAttention(nn.Module):
         batch_size = X.size(1)
         X = X.transpose(0, 1)  # (B, T, N)
         alignment_scores = X.matmul(self.weight.t())
-        # print('AS: ', alignment_scores)
-        # print('wT: ', self.weight.t().shape)
-        # print('AS: ', alignment_scores.shape)
+        # print('AS: ', alignment_scores[:2])
+
         # alpha [T x 1]
-        attn_weights = nn.functional.softmax(alignment_scores, dim=0)
-        # print('X: ', X.shape)
-        # print('ATT: ', attn_weights.shape)
-        # print('X: ', X.shape)
+        attn_weights = nn.functional.softmax(alignment_scores, dim=1)
+        # print('ATT: ', attn_weights[:2])
+        # print('X: ', X[:2])
+
         # h_att [1 x N]
         return torch.bmm(attn_weights.transpose(1, 2), X)
