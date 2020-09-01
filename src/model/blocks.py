@@ -13,7 +13,7 @@ class ConvNet(nn.Module):
     #             if size == -1:
     #                 size =
 
-    def __init__(self, size, in_channels=1, batch=True):
+    def __init__(self, size, in_channels=1, batch=True, output_size=15930):
         super().__init__()
         self.width, self.height = size
         self.batch = batch
@@ -57,7 +57,7 @@ class ConvNet(nn.Module):
         # )
 
         # self.fc = nn.Linear(2540, 50)
-        self.fc = nn.Linear(15930, 50)
+        self.fc = nn.Linear(output_size, 50)
 
     # def init_weights(self):
     #     for m in self.layers:
@@ -111,15 +111,12 @@ class SoftmaxAttention(nn.Module):
         # print('ATT:', X.shape)
         # X [T, B, N]
         # weight [N x 1]
-        batch_size = X.size(1)
+
         X = X.transpose(0, 1)  # (B, T, N)
         alignment_scores = X.matmul(self.weight.t())
-        # print('AS: ', alignment_scores[:2])
 
         # alpha [T x 1]
         attn_weights = nn.functional.softmax(alignment_scores, dim=1)
-        # print('ATT: ', attn_weights[:2])
-        # print('X: ', X[:2])
 
         # h_att [1 x N]
         return torch.bmm(attn_weights.transpose(1, 2), X)

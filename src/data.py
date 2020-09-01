@@ -109,7 +109,6 @@ class AFECGDataset(Dataset):
         if count is None:
             count = len(data)
         transformed_data = []
-        # transformed_labels= []
 
         skip = 0
         print('Preparing {} samples'.format(count))
@@ -118,14 +117,11 @@ class AFECGDataset(Dataset):
             filepath = fmt.format(sample_idx)
 
             if os.path.isfile(filepath):
-                # print('Skip {},{}'.format(sample_idx, signal_idx))
                 t = torch.load(filepath)
                 skip += 1
                 transformed_data.append(t)
                 continue
-            # print(sample)
             for signal_idx, signal in enumerate(sample):
-                # signal = (signal - signal.min()) / (signal.max() if signal.max() != 0 else 1)
                 sw = to_wavelet(signal)
                 sw = (sw - sw.min()) / (sw.max() if sw.max() != 0 else 1)
                 wavelets.append(sw)
@@ -148,22 +144,30 @@ class SecondDataset(Dataset):
     it is possible to control the size of each window (in seconds) and load data from other sources by tuning the sample
     rate (samples_per_second)
     """
-    def __init__(self, dataset_name, data_path, samples_per_second=250, sample_size_seconds=30):
+    def __init__(self, dataset_name, data_path, samples_per_second=250, sample_size_seconds=30, wavelet=None):
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
         self.samples_per_second = samples_per_second
         self.sample_size_seconds = sample_size_seconds
+        self.to_wavelet = wavelet
         self.samples = torch.tensor([])  # Compatibility with __len__
         self.labels = torch.tensor([])
-        # TODO Config from outside
-        self.to_wavelet = WaveletTransform(wavelet.Morlet(6), resample=20)
+
+    @staticmethod
+    def _make_weights_for_balanced_classes(samples, labels, class_weights):
+        weight = [0] * len(samples)
+        for idx, (sample, label) in enumerate(zip(samples, labels)):
+            weight[idx] = class_weights[label]
+        return weight
 
     @staticmethod
     def _select_best_signal_fit(signals):
         return signals[0]  # TODO Select by SQI
 
-    def load(self, backup_path=None):
+    def load(self, backup_path=None, class_weights=None):
+        if class_weights is None:
+            class_weights = [0.3, 0.7]
         dataset_path = os.path.join(backup_path, 'dataset.pt')
         if backup_path is not None and os.path.exists(dataset_path):
             dataset_loaded = torch.load(dataset_path)
@@ -179,7 +183,10 @@ class SecondDataset(Dataset):
             tensors = []
             for record in tqdm(records):
                 sample: torch.Tensor = SecondDataset._select_best_signal_fit(torch.tensor(record.p_signal).transpose(0, 1))
-                sw = self.to_wavelet(sample)
+                if self.to_wavelet is not None:
+                    sw = self.to_wavelet(sample)
+                else:
+                    sw = sample
                 sw = (sw - sw.min()) / (sw.max() if sw.max() != 0 else 1)
                 tensors.append(sw)
             self.samples = torch.stack(tensors)
@@ -195,6 +202,7 @@ class SecondDataset(Dataset):
         assert isinstance(self.labels, torch.Tensor)
         assert isinstance(self.samples, torch.Tensor)
         assert self.labels.shape[0] == self.samples.shape[0]
+        return SecondDataset._make_weights_for_balanced_classes(list(self.samples), list(self.labels), class_weights)
 
     def __getitem__(self, index):
         if type(index) == int and index < 0 or index > len(self.samples):
@@ -203,6 +211,22 @@ class SecondDataset(Dataset):
 
     def __len__(self) -> int:
         return self.samples.shape[0]
+
+
+class WrapperDataset(Dataset):
+    def __init__(self, samples: torch.Tensor, labels: torch.Tensor) -> None:
+        super().__init__()
+        self.samples = samples
+        self.labels = labels
+
+    def __getitem__(self, index: int):
+        if type(index) == int and index < 0 or index > self.samples.shape[0]:
+            return None
+        return self.samples[index], self.labels[index]
+
+    def __len__(self) -> int:
+        return self.samples.shape[0]
+
 
 
 class WaveletTransform(object):

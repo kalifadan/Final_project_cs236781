@@ -5,7 +5,7 @@ import torch.nn.functional as F
 
 
 class Baseline(nn.Module):
-    def __init__(self, seq_len=20, input_size=(375, 20), add_brnn=True):
+    def __init__(self, seq_len=20, input_size=(375, 20), add_brnn=True, hidden_size=100):
         super().__init__()
         self.seq_len = seq_len
 
@@ -19,11 +19,11 @@ class Baseline(nn.Module):
 
         self.support_brnn = add_brnn
         if add_brnn:
-            self.brnn = BRNN(50, 50, seq_len)
+            self.brnn = BRNN(50, hidden_size, seq_len)
 
         output_coef = 1 + int(add_brnn)
         self.attention = SoftmaxAttention(output_coef * 50)
-        self.fc = nn.Linear(output_coef * 50, 2)
+        self.fc = nn.Linear(output_coef * hidden_size * 20, 2)
         self.apply(Baseline.init_weights)
 
     @staticmethod
@@ -41,20 +41,23 @@ class Baseline(nn.Module):
         N is the number of images per sample, and B is the batch size
         """
         out = [self.cnn_layers[i](X[:, i, :].float().unsqueeze(1)) for i in range(self.seq_len)]
+
         out = torch.stack(out)
+        print(out.shape)
+        # out = F.interpolate(X, scale_factor=1/20)
+        # print('AFTER CNNN:', out)
+        out = self.brnn(out)
 
-        print('CNN: ', out[:2])
+        # print('After BRNN:', out)
 
-        if self.support_brnn:
-            out = self.brnn(out)
-            print('BRNN: ', out[:2])
+        # out = self.attention(out)
 
-        out = self.attention(out)
-        # print('AFTER ATT: ', out[:2])
-        out = out.squeeze(1)
+        # out = out.squeeze(1)
 
-        # out = self.fc(out.transpose(0, 1).flatten(start_dim=1))
-        out = self.fc(out)
-        out = out.squeeze(1)
-        print('After FC: ', out[:10])
-        return F.softmax(out, dim=1)
+        # print(out.shape)
+        out = self.fc(out.transpose(0, 1).flatten(start_dim=1))
+
+        # out = self.fc(out.squeeze(0))
+        print('After FC:', out)
+
+        return out

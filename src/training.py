@@ -1,5 +1,6 @@
 import torch
 from torch import nn, autograd
+from torch.autograd import Variable
 from torch.utils.data import DataLoader
 import tqdm.notebook as tnotebook
 import tqdm
@@ -16,34 +17,49 @@ def train(model, dataset, config):
     learning_rate = config['learning_rate']
     weight_decay = config['weight_decay']
     is_notebook = config['is_notebook']
-    criterion = nn.CrossEntropyLoss(weight=torch.tensor([0.3, 0.7]))
+    class_weights = config['class_weights']
+    criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # Preparation
-    # sampler = torch.utils.data.sampler.WeightedRandomSampler([0.7, 0.3], len(dataset), replacement=False)
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=num_workers)
+    if class_weights is not None:
+        print(len(class_weights))
+        print(len(dataset))
+        assert len(class_weights) == len(dataset)
+        sampler = torch.utils.data.sampler.WeightedRandomSampler(class_weights, len(dataset), replacement=True)
+    else:
+        sampler = None
+    dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers)
 
     # Train the model
     loss_list = []
     acc_list = []
     trange = tnotebook.trange if is_notebook else tqdm.trange
     tq = tnotebook.tqdm if is_notebook else tqdm.tqdm
-    for epoch in trange(num_epochs, desc='Epoch'):
+
+    r = trange(num_epochs, desc='Epoch')
+    for epoch in r:
         acc = 0
         total_size = len(dataset)
+        iteration = 0
         for batch_data, batch_labels in tq(dataloader, desc='Iteration'):
             optimizer.zero_grad()
-            batch_data.requires_grad = True
+            data = Variable(batch_data)
+            labels = Variable(batch_labels)
+            # batch_data.requires_grad = True
             # for b in batch_data:
             #     print(b.sum().item(), end=', ')
-            print('Batch: ', batch_data.shape)
-            output = model(batch_data)
+            # print('Batch: ', data.shape)
+            output = model(data)
 
             # print(output[:10])
             # print('Labels:', batch_labels)
 
-            loss = criterion(output, batch_labels)
+            loss = criterion(output, labels)
+
             print('Loss: ', loss)
+            # if iteration % 8 == 0:
+            #     print('Output:', output.shape)
 
             # Backprop and perform optimisation
             loss_list.append(loss.item())
@@ -54,19 +70,20 @@ def train(model, dataset, config):
             # Track the accuracy
             #         probability = torch.distributions.categorical.Categorical(output)
             #         prediction = probability.sample()
-            prediction = output.softmax(dim=1).argmax(dim=1)
-
-            print('Output:', output[:50])
-            print('Ground truth:', batch_labels[:50])
-            print('Prediction:', prediction[:50])
+            _, prediction = torch.max(output.data, 1)
 
             correct = (prediction == batch_labels).sum().item()
-            print('Correct: {}'.format(correct))
+            if iteration % 8 == 0:
+                print('Ground truth:', batch_labels[:50])
+                print('Prediction:', prediction[:50])
+                print('Correct: {}'.format(correct))
             acc += correct
+            iteration += 1
 
         acc = acc / (total_size)
         acc_list.append(acc)
-        print('Epoch [{}/{}], Accuracy: {:.2f}%'.format(epoch + 1, num_epochs, acc * 100))
+        r.set_description('Accuracy: {:.2f}%'.format(acc * 100))
+        # print('Epoch [{}/{}], Accuracy: {:.2f}%'.format(epoch + 1, num_epochs, acc * 100))
 
 
 def test(model, dataset, config):
