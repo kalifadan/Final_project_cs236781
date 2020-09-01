@@ -42,7 +42,9 @@ def train(model, dataset, config):
         acc = 0
         total_size = len(dataset)
         iteration = 0
-        for batch_data, batch_labels in tq(dataloader, desc='Iteration'):
+
+        r_inner = tq(dataloader, desc='Iteration')
+        for batch_data, batch_labels in r_inner:
             optimizer.zero_grad()
             data = Variable(batch_data)
             labels = Variable(batch_labels)
@@ -57,9 +59,8 @@ def train(model, dataset, config):
 
             loss = criterion(output, labels)
 
-            print('Loss: ', loss)
             # if iteration % 8 == 0:
-            #     print('Output:', output.shape)
+            #     print('Loss: ', loss)
 
             # Backprop and perform optimisation
             loss_list.append(loss.item())
@@ -73,14 +74,15 @@ def train(model, dataset, config):
             _, prediction = torch.max(output.data, 1)
 
             correct = (prediction == batch_labels).sum().item()
-            if iteration % 8 == 0:
-                print('Ground truth:', batch_labels[:50])
-                print('Prediction:', prediction[:50])
-                print('Correct: {}'.format(correct))
+            # if iteration % 8 == 0:
+            #     print('Ground truth:', batch_labels[:50])
+            #     print('Prediction:', prediction[:50])
+            #     print('Correct: {}'.format(correct))
             acc += correct
             iteration += 1
+            r_inner.set_description('Current loss: {}'.format(loss_list[-1]))
 
-        acc = acc / (total_size)
+        acc = acc / total_size
         acc_list.append(acc)
         r.set_description('Accuracy: {:.2f}%'.format(acc * 100))
         # print('Epoch [{}/{}], Accuracy: {:.2f}%'.format(epoch + 1, num_epochs, acc * 100))
