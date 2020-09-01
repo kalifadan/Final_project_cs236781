@@ -28,7 +28,7 @@ def train(model, dataset, config):
         assert len(class_weights) == len(dataset)
         sampler = torch.utils.data.sampler.WeightedRandomSampler(class_weights, len(dataset), replacement=True)
     else:
-        sampler = None
+        sampler = torch.utils.data.sampler.RandomSampler(dataset)
     dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers)
 
     # Train the model

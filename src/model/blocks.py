@@ -13,14 +13,14 @@ class ConvNet(nn.Module):
     #             if size == -1:
     #                 size =
 
-    def __init__(self, size, in_channels=1, batch=True, output_size=15930):
+    # TODO Remove fc_size
+    def __init__(self, size, in_channels=1, batch=True, fc_size=15930, output_size=50):
         super().__init__()
         self.width, self.height = size
         self.batch = batch
         self.layers = [
             nn.Conv2d(in_channels, 10, kernel_size=(3, 21)),
             nn.ReLU(),
-            # nn.LeakyReLU(negative_slope=0.2),
             nn.MaxPool2d(kernel_size=(2, 2), stride=2),
 
             # nn.Conv2d(10, 10, kernel_size=(3, 21)),
@@ -35,34 +35,8 @@ class ConvNet(nn.Module):
         ]
         self.cnn = nn.Sequential(*self.layers)
 
-        # self.layer1 = nn.Sequential(
-        #     nn.Conv2d(in_channels, 10, kernel_size=(3, 21)),
-        #     nn.ReLU(),
-        # )
-        #
-        # self.layer2 = nn.Sequential(
-        #     nn.Conv2d(10, 10, kernel_size=(3, 21)),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2)
-        # )
-        #
-        # self.layer3 = nn.Sequential(
-        #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
-        #     nn.ReLU(),
-        # )
-        #
-        # self.layer4 = nn.Sequential(
-        #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
-        #     nn.ReLU(),
-        # )
-
         # self.fc = nn.Linear(2540, 50)
-        self.fc = nn.Linear(output_size, 50)
-
-    # def init_weights(self):
-    #     for m in self.layers:
-    #         if isinstance(m, nn.Conv2d):
-    #             m.weight.data.normal_(0, 50)
+        self.fc = nn.Linear(fc_size, output_size)
 
     def forward(self, x):
         x = x.float()

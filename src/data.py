@@ -7,7 +7,7 @@ import dsp
 import numpy as np
 from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
-import pycwt as wavelet
+from pycwt import Morlet
 from tqdm import tqdm
 
 
@@ -99,7 +99,7 @@ class AFECGDataset(Dataset):
         directory = '../data/new'
         sample_format = 'sample_{}.pt'
         fmt = os.path.join(directory, sample_format)
-        to_wavelet = WaveletTransform(wavelet.Morlet(6), resample=20)
+        to_wavelet = WaveletTransform(Morlet(6), resample=20)
 
         if save_files and not os.path.exists(directory):
             os.makedirs(directory)
@@ -144,13 +144,13 @@ class SecondDataset(Dataset):
     it is possible to control the size of each window (in seconds) and load data from other sources by tuning the sample
     rate (samples_per_second)
     """
-    def __init__(self, dataset_name, data_path, samples_per_second=250, sample_size_seconds=30, wavelet=None):
+    def __init__(self, dataset_name, data_path, samples_per_second=250, sample_size_seconds=30, wt=None):
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
         self.samples_per_second = samples_per_second
         self.sample_size_seconds = sample_size_seconds
-        self.to_wavelet = wavelet
+        self.to_wavelet = wt
         self.samples = torch.tensor([])  # Compatibility with __len__
         self.labels = torch.tensor([])
 
@@ -168,8 +168,9 @@ class SecondDataset(Dataset):
     def load(self, backup_path=None, class_weights=None):
         if class_weights is None:
             class_weights = [0.3, 0.7]
-        dataset_path = os.path.join(backup_path, 'dataset.pt')
-        if backup_path is not None and os.path.exists(dataset_path):
+
+        if backup_path is not None and os.path.exists(os.path.join(backup_path, 'dataset.pt')):
+            dataset_path = os.path.join(backup_path, 'dataset.pt')
             dataset_loaded = torch.load(dataset_path)
             self.samples = dataset_loaded['samples']
             self.labels = dataset_loaded['labels']
@@ -191,6 +192,7 @@ class SecondDataset(Dataset):
                 tensors.append(sw)
             self.samples = torch.stack(tensors)
             if backup_path is not None:
+                dataset_path = os.path.join(backup_path, 'dataset.pt')
                 os.makedirs(backup_path)
                 torch.save({
                     'samples': self.samples,
