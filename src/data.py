@@ -5,10 +5,9 @@ import torch
 import wfdb
 import dsp
 import numpy as np
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 import pycwt as wavelet
-from torch.utils.data.dataset import T_co
 from tqdm import tqdm
 
 
@@ -155,20 +154,46 @@ class SecondDataset(Dataset):
         self.data_path = data_path
         self.samples_per_second = samples_per_second
         self.sample_size_seconds = sample_size_seconds
-        self.samples = []
-        self.labels = []
+        self.samples = torch.tensor([])  # Compatibility with __len__
+        self.labels = torch.tensor([])
+        # TODO Config from outside
+        self.to_wavelet = WaveletTransform(wavelet.Morlet(6), resample=20)
 
-    def load(self):
-        samples_per_second = self.samples_per_second
-        sample_size_seconds = self.sample_size_seconds
-        records, labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=sample_size_seconds,
-                                       samples_per_second=samples_per_second)
-        self.labels = torch.tensor(labels)
-        tensors = []
-        for record in records:
-            sample: torch.Tensor = torch.tensor(record.p_signal).transpose(0, 1)
-            tensors.append(sample)
-        self.samples = torch.cat(tensors)
+    @staticmethod
+    def _select_best_signal_fit(signals):
+        return signals[0]  # TODO Select by SQI
+
+    def load(self, backup_path=None):
+        dataset_path = os.path.join(backup_path, 'dataset.pt')
+        if backup_path is not None and os.path.exists(dataset_path):
+            dataset_loaded = torch.load(dataset_path)
+            self.samples = dataset_loaded['samples']
+            self.labels = dataset_loaded['labels']
+            print('Loaded {} samples from backup'.format(self.samples.shape[0]))
+        else:
+            samples_per_second = self.samples_per_second
+            sample_size_seconds = self.sample_size_seconds
+            records, labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=sample_size_seconds,
+                                           samples_per_second=samples_per_second)
+            self.labels = torch.tensor(labels)
+            tensors = []
+            for record in tqdm(records):
+                sample: torch.Tensor = SecondDataset._select_best_signal_fit(torch.tensor(record.p_signal).transpose(0, 1))
+                sw = self.to_wavelet(sample)
+                sw = (sw - sw.min()) / (sw.max() if sw.max() != 0 else 1)
+                tensors.append(sw)
+            self.samples = torch.stack(tensors)
+            if backup_path is not None:
+                os.makedirs(backup_path)
+                torch.save({
+                    'samples': self.samples,
+                    'labels': self.labels
+                }, dataset_path)
+
+        print(self.labels.shape)
+        print(self.samples.shape)
+        assert isinstance(self.labels, torch.Tensor)
+        assert isinstance(self.samples, torch.Tensor)
         assert self.labels.shape[0] == self.samples.shape[0]
 
     def __getitem__(self, index):
@@ -177,7 +202,7 @@ class SecondDataset(Dataset):
         return self.samples[index], self.labels[index]
 
     def __len__(self) -> int:
-        return len(self.samples)
+        return self.samples.shape[0]
 
 
 class WaveletTransform(object):

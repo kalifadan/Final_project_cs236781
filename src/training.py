@@ -36,8 +36,8 @@ def train(model, dataset, config):
             batch_data.requires_grad = True
             # for b in batch_data:
             #     print(b.sum().item(), end=', ')
-            print(batch_data[:, 0, :].shape)
-            output = model(batch_data[:, 0, :].unsqueeze(1).float())
+            print('Batch: ', batch_data.shape)
+            output = model(batch_data)
 
             # print(output[:10])
             # print('Labels:', batch_labels)

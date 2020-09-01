@@ -13,10 +13,10 @@ class ConvNet(nn.Module):
     #             if size == -1:
     #                 size =
 
-    def __init__(self, size, in_channels=1):
+    def __init__(self, size, in_channels=1, batch=True):
         super().__init__()
         self.width, self.height = size
-
+        self.batch = batch
         self.layers = [
             nn.Conv2d(in_channels, 10, kernel_size=(3, 21)),
             nn.ReLU(),
@@ -65,6 +65,9 @@ class ConvNet(nn.Module):
     #             m.weight.data.normal_(0, 50)
 
     def forward(self, x):
+        x = x.float()
+        if not self.batch:
+            x = x.unsqueeze(1)
         out = self.cnn(x)
         # print('After conv: ', out)
         # print(out.shape)
