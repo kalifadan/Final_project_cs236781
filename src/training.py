@@ -85,7 +85,7 @@ def train(model, dataset, config):
         acc = acc / total_size
         acc_list.append(acc)
         r.set_description('Accuracy: {:.2f}%'.format(acc * 100))
-        # print('Epoch [{}/{}], Accuracy: {:.2f}%'.format(epoch + 1, num_epochs, acc * 100))
+        print('Epoch [{}/{}], Accuracy: {:.2f}%'.format(epoch + 1, num_epochs, acc * 100))
 
 
 def test(model, dataset, config):
