@@ -14,7 +14,7 @@ class ConvNet(nn.Module):
     #                 size =
 
     # TODO Remove fc_size
-    def __init__(self, size, in_channels=1, batch=True, fc_size=15930, output_size=50):
+    def __init__(self, size, in_channels=1, batch=True, input_size=7500, output_size=50):
         super().__init__()
         self.width, self.height = size
         self.batch = batch
@@ -33,10 +33,40 @@ class ConvNet(nn.Module):
             # nn.Conv2d(10, 10, kernel_size=(4, 21)),
             # nn.ReLU(),
         ]
-        self.cnn = nn.Sequential(*self.layers)
 
+        kernel_size = 5
+        stride = 1
+        padding = 0
+        dilation = 1
+        self.layers = [
+            nn.Conv1d(in_channels, 4, 5, stride=stride, padding=padding, dilation=dilation),
+            nn.ReLU(),
+            nn.Conv1d(4, 8, 5, stride=stride, padding=padding, dilation=dilation),
+            nn.ReLU(),
+            nn.Conv1d(8, 16, 5, stride=stride, padding=padding, dilation=dilation),
+            nn.ReLU(),
+            nn.MaxPool1d(2),
+        ]
+
+        # self.layers = [
+        #     nn.Conv2d(in_channels, 32, kernel_size=(3, 21)),
+        #     nn.ReLU(),
+        #
+        #     nn.Conv2d(32, 10, kernel_size=(3, 21)),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+        #
+        #     # nn.Conv2d(10, 10, kernel_size=(4, 21)),
+        #     # nn.ReLU(),
+        #     #
+        #     # nn.Conv2d(10, 10, kernel_size=(4, 21)),
+        #     # nn.ReLU(),
+        # ]
+
+        self.cnn = nn.Sequential(*self.layers)
+        fc_size = int(((input_size + 2 * padding - dilation * (kernel_size - 1) - 1) / stride) + 1)
         # self.fc = nn.Linear(2540, 50)
-        self.fc = nn.Linear(fc_size, output_size)
+        self.fc = nn.Linear(59904, output_size)
 
     def forward(self, x):
         x = x.float()

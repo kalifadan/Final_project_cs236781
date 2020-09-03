@@ -11,24 +11,19 @@ def train(model, dataset, config):
     # test.assertEqual(total_size, len(y_train))
 
     # Loss and optimizer
-    num_epochs = config['num_epochs']
-    num_workers = config['num_workers']
-    batch_size = config['batch_size']
-    learning_rate = config['learning_rate']
-    weight_decay = config['weight_decay']
-    is_notebook = config['is_notebook']
-    class_weights = config['class_weights']
+    num_epochs = config.get('num_epochs', 10)
+    num_workers = config.get('num_workers', 0)
+    batch_size = config.get('batch_size', 1)
+    learning_rate = config.get('learning_rate', 0.001)
+    weight_decay = config.get('weight_decay', 0.01)
+    is_notebook = config.get('is_notebook', False)
+    # class_weights = config.get('class_weights', None)
+    # criterion = nn.CrossEntropyLoss(weight=class_weights)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
     # Preparation
-    if class_weights is not None:
-        print(len(class_weights))
-        print(len(dataset))
-        assert len(class_weights) == len(dataset)
-        sampler = torch.utils.data.sampler.WeightedRandomSampler(class_weights, len(dataset), replacement=True)
-    else:
-        sampler = torch.utils.data.sampler.RandomSampler(dataset)
+    sampler = torch.utils.data.sampler.RandomSampler(dataset)
     dataloader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, num_workers=num_workers)
 
     # Train the model
@@ -54,8 +49,9 @@ def train(model, dataset, config):
             # print('Batch: ', data.shape)
             output = model(data)
 
-            # print(output[:10])
+            print('Output:', output[:10])
             # print('Labels:', batch_labels)
+            # print(labels.shape)
 
             loss = criterion(output, labels)
 
@@ -75,8 +71,8 @@ def train(model, dataset, config):
 
             correct = (prediction == batch_labels).sum().item()
             # if iteration % 8 == 0:
-            #     print('Ground truth:', batch_labels[:50])
-            #     print('Prediction:', prediction[:50])
+            print('Ground truth:', batch_labels[:10])
+            print('Prediction:', prediction[:10])
             #     print('Correct: {}'.format(correct))
             acc += correct
             iteration += 1
@@ -105,6 +101,7 @@ def test(model, dataset, config):
     y_pred = []
     for batch_data, batch_labels in tq(iterator, desc='Example'):
         output = model(batch_data)
+        # print('Output: ', output[batch_labels == 1], batch_labels[batch_labels == 1])
 
         # Track the accuracy
         prediction = output.argmax(dim=1).item()

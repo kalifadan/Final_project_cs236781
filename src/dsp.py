@@ -1,4 +1,6 @@
 from __future__ import division
+
+import torch
 from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy as np
 from matplotlib import pyplot as plt
@@ -24,7 +26,7 @@ def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, l
     # ax1.plot(time, iwave, '-r', linewidth=1, label='Inverse wavelet')
     ax1.legend()
     ax1.set_title('a) Original ECG Signal')
-    ax1.set_ylabel(r'Frequency [Hz]')
+    ax1.set_ylabel(r'Voltage [mV]')
 
     # Second sub-plot, the normalized wavelet power spectrum and significance
     # level contour lines and cone of influece hatched area. Note that period
@@ -34,7 +36,7 @@ def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, l
     print('Time: ', time.shape)
     print('Frequencies: ', frequencies.shape)
     print('Power: ', power.shape)
-    ax2.contourf(time, period, np.log2(power), extend='both', cmap=plt.cm.gray)
+    ax2.contourf(time, frequencies, np.log2(power), extend='both', cmap=plt.cm.gray)
     extent = [time.min(), time.max(), 0, max(period)]
     # ax2.fill(np.concatenate([t, t[-1:] + dt, t[-1:] + dt,
     #                            t[:1] - dt, t[:1] - dt]),
@@ -66,17 +68,38 @@ def wavelet_figure_to_numpy_image(time, signal, frequencies, power, width, heigh
 
 def wavelet_decompose_power_spectrum(signal, wl=None,
                                      significance_level=0.9,
-                                     resample=None):
+                                     resample=None,
+                                     sampling_frequency=None,
+                                     filter_frequency=40,
+                                     dt=1,
+                                     s0=8.3,
+                                     dj=1/15,
+                                     J=19):
+    """
+
+    :param signal:
+    :param wl:
+    :param significance_level:
+    :param resample:
+    :param dt: Sampling interval
+    :param s0: Starting scale
+    :param dj: sub-octaves per octaves
+    :param J: Seven powers of two with dj sub-octaves
+    :return:
+    """
     if resample is not None:
         signal = sp.resample(signal, signal.shape[0] // resample)
 
+    if isinstance(signal, torch.Tensor):
+        signal = signal.numpy()
+
     # Butterworth filter
-    sos = sp.butter(5, 40, 'low', fs=1000, output='sos')
-    signal = sp.sosfilt(sos, signal)
+    if sampling_frequency is not None:
+        sos = sp.butter(5, filter_frequency, 'low', fs=sampling_frequency, output='sos')
+        signal = sp.sosfilt(sos, signal)
 
     time = np.arange(signal.shape[0])
     N = time.shape[0]
-    dt = 1
 
     p = np.polyfit(time, signal, 1)
     dat_notrend = signal - np.polyval(p, time)
@@ -87,9 +110,6 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
         wl = wavelet.Morlet(6)
 
     # TODO Check these hyperparams
-    s0 = 8.3  # Starting scale
-    dj = 1 / 15  # X sub-octaves per octaves
-    J = 19  # Seven powers of two with dj sub-octaves
     # alpha, _, _ = wavelet.ar1(signal)  # Lag-1 autocorrelation for red noise
 
     wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(dat_norm, dt, dj, s0, J, wl)

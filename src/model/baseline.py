@@ -22,8 +22,8 @@ class Baseline(nn.Module):
             self.brnn = BRNN(50, hidden_size, seq_len)
 
         output_coef = 1 + int(add_brnn)
-        self.attention = SoftmaxAttention(output_coef * 50)
-        self.fc = nn.Linear(output_coef * hidden_size * 20, 2)
+        self.attention = SoftmaxAttention(output_coef * hidden_size)
+        self.fc = nn.Linear(output_coef * hidden_size, 2)
         self.apply(Baseline.init_weights)
 
     @staticmethod
@@ -41,23 +41,10 @@ class Baseline(nn.Module):
         N is the number of images per sample, and B is the batch size
         """
         out = [self.cnn_layers[i](X[:, i, :].float().unsqueeze(1)) for i in range(self.seq_len)]
-
         out = torch.stack(out)
-        print(out.shape)
-        # out = F.interpolate(X, scale_factor=1/20)
-        # print('AFTER CNNN:', out)
         out = self.brnn(out)
-
-        # print('After BRNN:', out)
-
-        # out = self.attention(out)
-
-        # out = out.squeeze(1)
-
-        # print(out.shape)
-        out = self.fc(out.transpose(0, 1).flatten(start_dim=1))
-
+        out = self.attention(out)
+        out = out.squeeze(1)
+        out = self.fc(out)
         # out = self.fc(out.squeeze(0))
-        print('After FC:', out)
-
         return out
