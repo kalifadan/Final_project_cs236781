@@ -9,6 +9,7 @@ from torch.utils.data import Dataset
 import matplotlib.pyplot as plt
 from pycwt import Morlet
 from tqdm import tqdm
+from wfdb import processing as wfdb_processing
 
 
 def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per_second=250):
@@ -54,25 +55,20 @@ def split_sample(record: wfdb.Record, sample_size_seconds=30, samples_per_second
         .to(device) \
         .transpose(0, 1)[0]
     chunk_size = sample_size_seconds * samples_per_second
-    # TODO Cleanup
-    # print(sample.shape)
-    # print(chunk_size)
-    # num_chunks = sample.shape[0] // (sample_size_seconds*samples_per_second)
-    # samples = list(map(lambda x: x.T[0], torch.split(sample, num_chunks)))  # Need to select by [SQI_purity], not [0]
     return sample.view(-1, chunk_size)
 
 
 class AFECGDataset(Dataset):
     """Artirial Fibrilation ECG dataset"""
 
-    def __init__(self, dataset_name, data_path, samples_per_second=250, transform=True) -> None:
+    def __init__(self, dataset_name, data_path, samples_per_second=250, wavelet=None):
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
         self.samples_per_second = samples_per_second
-        self.transform = transform
         self.samples = []
         self.labels = []
+        self.to_wavelet = wavelet
         # self.transform_samples = [split_sample(sample) for sample in self.samples]
 
     def __len__(self):
@@ -84,58 +80,60 @@ class AFECGDataset(Dataset):
         # samples_per_interval = split_sample(self.samples[index])
         return self.samples[index], self.labels[index]
 
-    def load(self):
+    def load(self, backup_path=None):
         samples_per_second = self.samples_per_second
-        transform = self.transform
+        to_wavelet = self.to_wavelet
+
+        if backup_path is not None:
+            filename = ('{}.pt' if self.to_wavelet is None else '{}_transformed.pt').format(self.dataset_name)
+            file_path = os.path.join(backup_path, filename)
+            if not os.path.exists(backup_path):
+                os.makedirs(backup_path)
+        else:
+            file_path = None
+
+        if file_path is not None and os.path.isfile(file_path):
+            data = torch.load(file_path)
+            print('Loaded from backup')
+            self.samples, self.labels = data['samples'], data['labels']
+            return
+
         data, labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=10 * 60,
                                     samples_per_second=samples_per_second)
         labels = torch.tensor(labels)
-        transformed_samples = [split_sample(sample) for sample in data]
-        self.samples, self.labels = self._load_data(transformed_samples, labels) if transform else \
-            (transformed_samples, labels)
-
-    @staticmethod
-    def _load_data(data, labels, count=None, save_files=True):
-        directory = '../data/new'
-        sample_format = 'sample_{}.pt'
-        fmt = os.path.join(directory, sample_format)
-        to_wavelet = WaveletTransform(Morlet(6), resample=20)
-
-        if save_files and not os.path.exists(directory):
-            os.makedirs(directory)
-
-        start = time.time()
-
-        if count is None:
-            count = len(data)
+        data = [split_sample(sample) for sample in data]
+        count = len(data)
         transformed_data = []
 
-        skip = 0
         print('Preparing {} samples'.format(count))
-        for sample_idx, sample in tqdm(enumerate(data[:count])):
-            wavelets = []
-            filepath = fmt.format(sample_idx)
 
-            if os.path.isfile(filepath):
-                t = torch.load(filepath)
-                skip += 1
-                transformed_data.append(t)
-                continue
+        for sample_idx, sample in tqdm(enumerate(data[:count]), desc='Preprocessing examples'):
+            wavelets = []
+
             for signal_idx, signal in enumerate(sample):
-                sw = to_wavelet(signal)
+                signal = wfdb_processing.normalize_bound(signal.numpy())
+                if to_wavelet is not None:
+                    sw = to_wavelet(signal)
+                else:
+                    sw = signal
                 sw = (sw - sw.min()) / (sw.max() if sw.max() != 0 else 1)
-                wavelets.append(sw)
+                wavelets.append(torch.tensor(sw))
 
             t = torch.stack(wavelets)
             transformed_data.append(t)
 
-            if save_files:
-                torch.save(t, filepath)
+        transformed_data = torch.stack(transformed_data)
+        if backup_path is not None:
+            torch.save({
+                'samples': transformed_data,
+                'labels': labels
+            }, file_path)
 
-        end = time.time()
-        print('Elapsed time: {} ms'.format(1000 * (end - start)))
-        print('Skipped {} files which had a backup'.format(skip))
-        return transformed_data, labels
+        self.samples, self.labels = transformed_data, labels
+
+
+def _select_best_signal_fit(signals):
+    return signals[0]  # TODO Select by SQI
 
 
 class SecondDataset(Dataset):
@@ -144,7 +142,8 @@ class SecondDataset(Dataset):
     it is possible to control the size of each window (in seconds) and load data from other sources by tuning the sample
     rate (samples_per_second)
     """
-    def __init__(self, dataset_name, data_path, samples_per_second=250, sample_size_seconds=30, wt=None):
+    def __init__(self, dataset_name, data_path, samples_per_second=250, sample_size_seconds=30, wt=None,
+                 signal_selector=_select_best_signal_fit, normalize=True):
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
@@ -153,24 +152,13 @@ class SecondDataset(Dataset):
         self.to_wavelet = wt
         self.samples = torch.tensor([])  # Compatibility with __len__
         self.labels = torch.tensor([])
+        self.signal_selector = signal_selector
+        self.normalize = normalize
 
-    @staticmethod
-    def _make_weights_for_balanced_classes(samples, labels, class_weights):
-        weight = [0] * len(samples)
-        for idx, (sample, label) in enumerate(zip(samples, labels)):
-            weight[idx] = class_weights[label]
-        return weight
-
-    @staticmethod
-    def _select_best_signal_fit(signals):
-        return signals[0]  # TODO Select by SQI
-
-    def load(self, backup_path=None, class_weights=None):
-        if class_weights is None:
-            class_weights = [0.3, 0.7]
-
-        if backup_path is not None and os.path.exists(os.path.join(backup_path, 'dataset.pt')):
-            dataset_path = os.path.join(backup_path, 'dataset.pt')
+    def load(self, backup_path=None):
+        filename = ('dataset.pt' if self.to_wavelet is None else 'dataset_transformed.pt').format(self.dataset_name)
+        if backup_path is not None and os.path.exists(os.path.join(backup_path, filename)):
+            dataset_path = os.path.join(backup_path, filename)
             dataset_loaded = torch.load(dataset_path)
             self.samples = dataset_loaded['samples']
             self.labels = dataset_loaded['labels']
@@ -183,17 +171,21 @@ class SecondDataset(Dataset):
             self.labels = torch.tensor(labels)
             tensors = []
             for record in tqdm(records):
-                sample: torch.Tensor = SecondDataset._select_best_signal_fit(torch.tensor(record.p_signal).transpose(0, 1))
+                sample: torch.Tensor = self.signal_selector(torch.tensor(record.p_signal).transpose(0, 1)) \
+                    if self.signal_selector is not None else torch.tensor(record.p_signal).transpose(0, 1)
                 if self.to_wavelet is not None:
                     sw = self.to_wavelet(sample)
                 else:
                     sw = sample
-                sw = (sw - sw.min()) / (sw.max() if sw.max() != 0 else 1)
+
+                if self.normalize:
+                    sw = (sw - sw.min()) / (sw.max() if sw.max() != 0 else 1)
                 tensors.append(sw)
             self.samples = torch.stack(tensors)
             if backup_path is not None:
-                dataset_path = os.path.join(backup_path, 'dataset.pt')
-                os.makedirs(backup_path)
+                dataset_path = os.path.join(backup_path, filename)
+                if not os.path.exists(backup_path):
+                    os.makedirs(backup_path)
                 torch.save({
                     'samples': self.samples,
                     'labels': self.labels
@@ -204,7 +196,6 @@ class SecondDataset(Dataset):
         assert isinstance(self.labels, torch.Tensor)
         assert isinstance(self.samples, torch.Tensor)
         assert self.labels.shape[0] == self.samples.shape[0]
-        return SecondDataset._make_weights_for_balanced_classes(list(self.samples), list(self.labels), class_weights)
 
     def __getitem__(self, index):
         if type(index) == int and index < 0 or index > len(self.samples):
@@ -228,7 +219,6 @@ class WrapperDataset(Dataset):
 
     def __len__(self) -> int:
         return self.samples.shape[0]
-
 
 
 class WaveletTransform(object):
