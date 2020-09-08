@@ -69,11 +69,12 @@ def split_sample(record: wfdb.Record, sample_size_seconds=30, samples_per_second
 class AFECGDataset(Dataset):
     """Atrial Fibrilation ECG dataset"""
 
-    def __init__(self, dataset_name, data_path, samples_per_second=250, wavelet=None):
+    def __init__(self, dataset_name, data_path, samples_per_second=250, seq_len=20, wavelet=None):
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
         self.samples_per_second = samples_per_second
+        self.seq_len = seq_len
         self.samples = []
         self.labels = []
         self.to_wavelet = wavelet
@@ -106,7 +107,8 @@ class AFECGDataset(Dataset):
             self.samples, self.labels = data['samples'], data['labels']
             return
 
-        data, labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=10 * 60,
+        data, labels = read_records(self.dataset_name, self.data_path,
+                                    sample_size_seconds=samples_per_second * self.seq_len,
                                     samples_per_second=samples_per_second, num_records=num_records)
         labels = torch.tensor(labels)
         data = [split_sample(sample) for sample in data]
