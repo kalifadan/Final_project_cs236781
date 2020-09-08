@@ -91,6 +91,7 @@ class AFECGDataset(Dataset):
 
     def load(self, backup_path=None, num_records=None, checkpoint_interval=100):
         samples_per_second = self.samples_per_second
+        sample_size_seconds = samples_per_second * self.seq_len
         to_wavelet = self.to_wavelet
 
         if backup_path is not None:
@@ -108,10 +109,10 @@ class AFECGDataset(Dataset):
             return
 
         data, labels = read_records(self.dataset_name, self.data_path,
-                                    sample_size_seconds=samples_per_second * self.seq_len,
+                                    sample_size_seconds=sample_size_seconds,
                                     samples_per_second=samples_per_second, num_records=num_records)
         labels = torch.tensor(labels)
-        data = [split_sample(sample) for sample in data]
+        data = [split_sample(sample, sample_size_seconds) for sample in data]
         count = len(data)
         transformed_data = []
 
