@@ -6,23 +6,41 @@ class ConvNet(nn.Module):
 
     @staticmethod
     def _conv_net2d(in_channels, kernel_size=(3, 21)):
+        # return [
+        #     nn.Conv2d(in_channels, 10, kernel_size=kernel_size),
+        #     nn.ReLU(),
+        #     nn.BatchNorm2d(10),
+        #
+        #     nn.Conv2d(10, 10, kernel_size=kernel_size),
+        #     nn.ReLU(),
+        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+        #     nn.BatchNorm2d(10),
+        #
+        #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
+        #     nn.ReLU(),
+        #     nn.BatchNorm2d(10),
+        #
+        #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
+        #     nn.ReLU(),
+        # ]
         return [
-            nn.Conv2d(in_channels, 10, kernel_size=kernel_size),
+            nn.Conv2d(in_channels, 8, kernel_size=(32, 64)),
             nn.ReLU(),
-            nn.BatchNorm2d(10),
+            nn.BatchNorm2d(8),
 
-            nn.Conv2d(10, 10, kernel_size=kernel_size),
+            nn.Conv2d(8, 8, kernel_size=(32, 64)),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2, 2), stride=2),
-            nn.BatchNorm2d(10),
-
-            nn.Conv2d(10, 10, kernel_size=(4, 21)),
-            nn.ReLU(),
-            nn.BatchNorm2d(10),
-
-            nn.Conv2d(10, 10, kernel_size=(4, 21)),
-            nn.ReLU(),
+            # nn.BatchNorm2d(10),
+            #
+            # nn.Conv2d(10, 10, kernel_size=(4, 21)),
+            # nn.ReLU(),
+            # nn.BatchNorm2d(10),
+            #
+            # nn.Conv2d(10, 10, kernel_size=(4, 21)),
+            # nn.ReLU(),
         ]
+
 
     @staticmethod
     def _conv_net1d(in_channels, stride, padding, dilation):
@@ -43,7 +61,7 @@ class ConvNet(nn.Module):
         self.batch = batch
         self.layers = ConvNet._conv_net2d(in_channels)
         self.cnn = nn.Sequential(*self.layers)
-        self.fc = nn.Linear(8890, output_size)
+        self.fc = nn.Linear(14880, output_size)
         # self.fc = nn.Linear(48260, output_size)
 
     def forward(self, x):

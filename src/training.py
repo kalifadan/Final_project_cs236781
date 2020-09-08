@@ -6,7 +6,7 @@ import tqdm.notebook as tnotebook
 import tqdm
 
 
-def train(model, dataset, config):
+def train(model, dataset, config, device=None):
     # total_size = len(x_train)
     # test.assertEqual(total_size, len(y_train))
 
@@ -41,19 +41,20 @@ def train(model, dataset, config):
         r_inner = tq(dataloader, desc='Iteration')
         for batch_data, batch_labels in r_inner:
             optimizer.zero_grad()
-            data = Variable(batch_data)
-            labels = Variable(batch_labels)
+            X, y_true = batch_data.to(device), batch_labels.to(device)
+            # data = Variable(batch_data)
+            # labels = Variable(batch_labels)
             # batch_data.requires_grad = True
             # for b in batch_data:
             #     print(b.sum().item(), end=', ')
             # print('Batch: ', data.shape)
-            output = model(data)
+            output = model(X)
 
-            print('Output:', output[:10])
+            # print('Output:', output[:10])
             # print('Labels:', batch_labels)
             # print(labels.shape)
 
-            loss = criterion(output, labels)
+            loss = criterion(output, y_true)
 
             # if iteration % 8 == 0:
             #     print('Loss: ', loss)
@@ -71,8 +72,8 @@ def train(model, dataset, config):
 
             correct = (prediction == batch_labels).sum().item()
             # if iteration % 8 == 0:
-            print('Ground truth:', batch_labels[:10])
-            print('Prediction:', prediction[:10])
+            print('Ground truth:', batch_labels[:100])
+            print('Prediction:', prediction[:100])
             #     print('Correct: {}'.format(correct))
             acc += correct
             iteration += 1
