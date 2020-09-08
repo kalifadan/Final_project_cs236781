@@ -69,6 +69,7 @@ def wavelet_figure_to_numpy_image(time, signal, frequencies, power, width, heigh
 def wavelet_decompose_power_spectrum(signal, wl=None,
                                      significance_level=0.9,
                                      resample=None,
+                                     resample_freq=None,
                                      sampling_frequency=None,
                                      filter_frequency=40,
                                      dt=1,
@@ -123,6 +124,10 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
     # signif, fft_theor = wavelet.significance(1.0, dt, scales, 0, alpha, significance_level=significance_level, wavelet=wl)
     # sig_percentile = np.ones([1, N]) * signif[:, None]
     # sig_percentile = power / sig_percentile
+
+    if resample_freq is not None:
+        power = sp.resample(power, num=resample_freq, axis=0)
+        freqs = sp.resample(freqs, num=resample_freq)
 
     # period = 1 / freqs
     return time, np.array(freqs), power, signal

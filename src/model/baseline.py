@@ -24,7 +24,7 @@ class Baseline(nn.Module):
         output_coef = 1 + int(add_brnn)
         self.attention = SoftmaxAttention(output_coef * hidden_size)
         self.fc = nn.Linear(output_coef * hidden_size, 2)
-        self.apply(Baseline.init_weights)
+        # self.apply(Baseline.init_weights)
 
     @staticmethod
     def init_weights(m: nn.Module):
@@ -40,9 +40,17 @@ class Baseline(nn.Module):
         :param X: A tensor of shape (B, N, H, W) where (W, H) are the image dimensions,
         N is the number of images per sample, and B is the batch size
         """
+        # print('X=', X.shape)  # (B, N, H, W)
+        # print('Single X=', X[:, 0, :].float().unsqueeze(1).shape)
+        # return
         out = [self.cnn_layers[i](X[:, i, :].float().unsqueeze(1)) for i in range(self.seq_len)]
+        print(out[0].shape)
+        print(out[0])
+        print(out[1])
         out = torch.stack(out)
+        print('After CNN=', out.shape)
         out = self.brnn(out)
+        print('After BRNN=', out.shape, '\n', out)
         out = self.attention(out)
         out = out.squeeze(1)
         out = self.fc(out)

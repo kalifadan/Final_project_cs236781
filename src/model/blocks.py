@@ -3,42 +3,30 @@ from torch import nn
 
 
 class ConvNet(nn.Module):
-    # @staticmethod
-    # def _calculate_layers_fc_size(layers, width):
-    #     size = -1
-    #     for layer in layers:
-    #         if isinstance(layer, nn.MaxPool2d):
-    #             size /= 2  # TODO Change
-    #         elif isinstance(layer, nn.Conv2d):
-    #             if size == -1:
-    #                 size =
 
-    # TODO Remove fc_size
-    def __init__(self, size, in_channels=1, batch=True, input_size=7500, output_size=50):
-        super().__init__()
-        self.width, self.height = size
-        self.batch = batch
-        self.layers = [
-            nn.Conv2d(in_channels, 10, kernel_size=(3, 21)),
+    @staticmethod
+    def _conv_net2d(in_channels, kernel_size=(3, 21)):
+        return [
+            nn.Conv2d(in_channels, 10, kernel_size=kernel_size),
+            nn.ReLU(),
+            nn.BatchNorm2d(10),
+
+            nn.Conv2d(10, 10, kernel_size=kernel_size),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+            nn.BatchNorm2d(10),
 
-            # nn.Conv2d(10, 10, kernel_size=(3, 21)),
-            # nn.ReLU(),
-            # nn.MaxPool2d(kernel_size=(2, 2), stride=2),
+            nn.Conv2d(10, 10, kernel_size=(4, 21)),
+            nn.ReLU(),
+            nn.BatchNorm2d(10),
 
-            # nn.Conv2d(10, 10, kernel_size=(4, 21)),
-            # nn.ReLU(),
-            #
-            # nn.Conv2d(10, 10, kernel_size=(4, 21)),
-            # nn.ReLU(),
+            nn.Conv2d(10, 10, kernel_size=(4, 21)),
+            nn.ReLU(),
         ]
 
-        kernel_size = 5
-        stride = 1
-        padding = 0
-        dilation = 1
-        self.layers = [
+    @staticmethod
+    def _conv_net1d(in_channels, stride, padding, dilation):
+        return [
             nn.Conv1d(in_channels, 4, 100, stride=stride, padding=padding, dilation=dilation),
             nn.ReLU(),
             nn.Conv1d(4, 8, 100, stride=stride, padding=padding, dilation=dilation),
@@ -48,34 +36,27 @@ class ConvNet(nn.Module):
             nn.MaxPool1d(2),
         ]
 
-        # self.layers = [
-        #     nn.Conv2d(in_channels, 32, kernel_size=(3, 21)),
-        #     nn.ReLU(),
-        #
-        #     nn.Conv2d(32, 10, kernel_size=(3, 21)),
-        #     nn.ReLU(),
-        #     nn.MaxPool2d(kernel_size=(2, 2), stride=2),
-        #
-        #     # nn.Conv2d(10, 10, kernel_size=(4, 21)),
-        #     # nn.ReLU(),
-        #     #
-        #     # nn.Conv2d(10, 10, kernel_size=(4, 21)),
-        #     # nn.ReLU(),
-        # ]
-
+    # TODO Remove fc_size
+    def __init__(self, size, in_channels=1, batch=True, output_size=50):
+        super().__init__()
+        self.width, self.height = size
+        self.batch = batch
+        self.layers = ConvNet._conv_net2d(in_channels)
         self.cnn = nn.Sequential(*self.layers)
-        fc_size = int(((input_size + 2 * padding - dilation * (kernel_size - 1) - 1) / stride) + 1)
-        # self.fc = nn.Linear(2540, 50)
-        self.fc = nn.Linear(57616, output_size)
+        self.fc = nn.Linear(8890, output_size)
+        # self.fc = nn.Linear(48260, output_size)
 
     def forward(self, x):
         x = x.float()
         if not self.batch:
             x = x.unsqueeze(1)
+
+        # print('Before CNN=', x)
         out = self.cnn(x)
         # print('After conv: ', out)
-        # print(out.shape)
+        # print('After CNN=', out.shape)
         out = out.flatten(start_dim=1)
+        # print('Before FC=', out.shape)
         out = self.fc(out)
         # print('After conv-fc: ', out)
         return out
@@ -98,6 +79,17 @@ class BRNN(nn.Module):
         return output
 
 
+r"""
+Notations:
+
+* $Y = \left[ y_1, \ldots, y_T \right]$ – the input matrix of size $\left( N \times T \right)$, where $N$ is the number of features in a single output vector of the BRNN
+
+* $w_\mathrm{att}$ – The parameters of the attention model, of size $\left( N \times 1 \right)$, where $N$ is the number of features in a single output vector of the BRNN
+
+* $\alpha$ – The attention weights, given as $\alpha = \mathrm{softmax} \left( w_\mathrm{att}^T Y \right)$. This is an element-wise softmax, where the output size of $\alpha$ is $\left( 1 \times T \right)$
+
+* $h_\mathrm{att}$ – Output of the attention mechanism, given by $h_\mathrm{att} = Y \alpha^T$, of size $\left( N \times 1 \right)$, i.e. a vector of $N$ features.
+"""
 class SoftmaxAttention(nn.Module):
     def __init__(self, input_size):
         super().__init__()
@@ -112,15 +104,20 @@ class SoftmaxAttention(nn.Module):
         features in each sequence node
         :return: A tensor of shape (B, 1, N) representing the weighted attention features for each sample in the batch
         """
-        # print('ATT:', X.shape)
         # X [T, B, N]
         # weight [N x 1]
 
-        X = X.transpose(0, 1)  # (B, T, N)
-        alignment_scores = X.matmul(self.weight.t())
+        X = X.transpose(0, 1)  # [B, T, N]
+        # weight is [1, N]
+        print('W_att=', self.weight.shape)
+        print('X_att=', X.shape)
+        alignment_scores = X.matmul(self.weight.t())  # [B, T, 1]
+        alignment_scores = alignment_scores.squeeze(-1)  # [B, T]
+        # print('alignment_scores=', alignment_scores)
 
-        # alpha [T x 1]
+        # alpha [B, T]
         attn_weights = nn.functional.softmax(alignment_scores, dim=1)
+        print('attn_weights=', attn_weights)
 
-        # h_att [1 x N]
-        return torch.bmm(attn_weights.transpose(1, 2), X)
+        # h_att [B, 1, T] bmm [B, T, N] -> [B, 1, N]
+        return torch.bmm(attn_weights.unsqueeze(-2), X)

@@ -88,7 +88,7 @@ class AFECGDataset(Dataset):
         # samples_per_interval = split_sample(self.samples[index])
         return self.samples[index], self.labels[index]
 
-    def load(self, backup_path=None, num_records=None):
+    def load(self, backup_path=None, num_records=None, checkpoint_interval=100):
         samples_per_second = self.samples_per_second
         to_wavelet = self.to_wavelet
 
@@ -115,6 +115,7 @@ class AFECGDataset(Dataset):
 
         print('Preparing {} samples'.format(count))
 
+        num_samples = 0
         for sample_idx, sample in tqdm(enumerate(data[:count]), desc='Preprocessing examples'):
             wavelets = []
 
@@ -128,6 +129,7 @@ class AFECGDataset(Dataset):
 
             t = torch.stack(wavelets)
             transformed_data.append(t)
+            num_samples += 1
 
         transformed_data = torch.stack(transformed_data)
         if backup_path is not None:
@@ -232,10 +234,11 @@ class WaveletTransform(object):
     """A Transform which enables a raw ECG signal to be transformed into a wavelet power spectrum, represented as
     a PyTorch Tensor object"""
 
-    def __init__(self, wavelet=None, resample=None) -> None:
+    def __init__(self, wavelet=None, resample=None, resample_freq=None) -> None:
         super().__init__()
         self.wavelet = wavelet
         self.resample = resample
+        self.resample_freq = resample_freq
 
     def __call__(self, sample):
         """
@@ -246,7 +249,7 @@ class WaveletTransform(object):
         """
         signal = sample
         time, frequencies, power, new_signal = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet,
-                                                                                    resample=self.resample)
+                                                                                    resample=self.resample, resample_freq=self.resample_freq)
         # np_image = dsp.wavelet_figure_to_numpy_image(time, signal, frequencies, power, self.size[0], self.size[1], self.dpi, levels=levels)
         # t = torch.from_numpy(np_image)
         plt.close()
