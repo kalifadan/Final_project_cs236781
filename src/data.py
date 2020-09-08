@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 from pycwt import Morlet
 from tqdm import tqdm
 from wfdb import processing as wfdb_processing
+from collections import Counter
 
 
 def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per_second=250):
@@ -21,13 +22,15 @@ def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per
     if sampto <= offset or sampto > max_sampto:
         return None, None, None
     record = wfdb.rdrecord(data_path + header.record_name, sampfrom=offset, sampto=sampto)
+
     ann = wfdb.rdann(data_path + header.record_name, 'atr', sampfrom=offset, sampto=sampto)
     return record, ann, sampto
 
 
-def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_second=250, batch_size=100):
+def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_second=250, num_records=None):
     samples = []
     labels = []
+    total_read_records = 0
     for record_name in wfdb.get_record_list(dataset_name):
         header = wfdb.rdheader(data_path + record_name)
 
@@ -43,10 +46,15 @@ def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_se
             samples.append(record)
             labels.append(ann.aux_note)
             samples_count += 1
-            if batch_size is not None and samples_count == batch_size:
-                break
 
-    labels = np.array([1 if '(AFIB' in key else 0 for key in labels])
+        total_read_records += 1
+        if num_records is not None and total_read_records == num_records:
+            break
+
+    # for l in labels:
+    #     print(Counter(l))
+    labels = np.array([1 if '(AFIB' in key or '(N' in key or '(AFL' in key or '(J' in key else 0 for key in labels])
+    # print(labels)
     return samples, labels
 
 
@@ -59,7 +67,7 @@ def split_sample(record: wfdb.Record, sample_size_seconds=30, samples_per_second
 
 
 class AFECGDataset(Dataset):
-    """Artirial Fibrilation ECG dataset"""
+    """Atrial Fibrilation ECG dataset"""
 
     def __init__(self, dataset_name, data_path, samples_per_second=250, wavelet=None):
         super().__init__()
@@ -80,7 +88,7 @@ class AFECGDataset(Dataset):
         # samples_per_interval = split_sample(self.samples[index])
         return self.samples[index], self.labels[index]
 
-    def load(self, backup_path=None):
+    def load(self, backup_path=None, num_records=None):
         samples_per_second = self.samples_per_second
         to_wavelet = self.to_wavelet
 
@@ -99,7 +107,7 @@ class AFECGDataset(Dataset):
             return
 
         data, labels = read_records(self.dataset_name, self.data_path, sample_size_seconds=10 * 60,
-                                    samples_per_second=samples_per_second)
+                                    samples_per_second=samples_per_second, num_records=num_records)
         labels = torch.tensor(labels)
         data = [split_sample(sample) for sample in data]
         count = len(data)
@@ -116,7 +124,6 @@ class AFECGDataset(Dataset):
                     sw = to_wavelet(signal)
                 else:
                     sw = signal
-                sw = (sw - sw.min()) / (sw.max() if sw.max() != 0 else 1)
                 wavelets.append(torch.tensor(sw))
 
             t = torch.stack(wavelets)
@@ -249,3 +256,37 @@ class WaveletTransform(object):
     def to_file(self, path):
         # TODO Implement
         pass
+
+
+def balanced_dataset(dataset, heldout_rate=0.2):
+    heldout = int(len(dataset) * heldout_rate)
+    train_size = len(dataset) - heldout
+    true_examples = dataset.samples[dataset.labels == 1]
+    true_labels = dataset.labels[dataset.labels == 1]
+    false_examples = dataset.samples[dataset.labels == 0]
+    false_labels = dataset.labels[dataset.labels == 0]
+
+    true_train_size = int(len(true_examples) * (1 - heldout_rate))
+    false_train_size = int(len(false_examples) * (1 - heldout_rate))
+
+    true_examples_train, true_examples_test = true_examples[:true_train_size], true_examples[true_train_size:]
+    true_labels_train, true_labels_test = true_labels[:true_train_size], true_labels[true_train_size:]
+
+    false_examples_train, false_examples_test = false_examples[:false_train_size], false_examples[false_train_size:]
+    false_labels_train, false_labels_test = false_labels[:false_train_size], false_labels[false_train_size:]
+
+    augmented_examples_train = []
+    augmented_labels_train = []
+    for i in range(len(false_examples_train) // len(true_examples_train)):
+        augmented_examples_train.append(true_examples_train.clone())
+        augmented_labels_train.append(torch.ones(len(true_examples_train)).long())
+
+    dataset.samples = torch.cat([torch.cat(augmented_examples_train), false_examples_train])
+    dataset.labels = torch.cat([torch.cat(augmented_labels_train), false_labels_train])
+
+    test_data = torch.cat([true_examples_test, false_examples_test])
+    test_labels = torch.cat([true_labels_test, false_labels_test])
+
+    train_dataset = dataset
+    test_dataset = WrapperDataset(test_data, test_labels)
+    return train_dataset, test_dataset

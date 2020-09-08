@@ -112,7 +112,8 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
     # TODO Check these hyperparams
     # alpha, _, _ = wavelet.ar1(signal)  # Lag-1 autocorrelation for red noise
 
-    wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(dat_norm, dt, dj, s0, J, wl)
+    # wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(signal, dt, dj, s0, J, wl)
+    wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(signal, dt, wavelet=wl)
     # iwave = wavelet.icwt(wave, scales, dt, dj, wl) * std
     power = (np.abs(wave)) ** 2
     fft_power = np.abs(fft) ** 2

@@ -39,11 +39,11 @@ class ConvNet(nn.Module):
         padding = 0
         dilation = 1
         self.layers = [
-            nn.Conv1d(in_channels, 4, 5, stride=stride, padding=padding, dilation=dilation),
+            nn.Conv1d(in_channels, 4, 100, stride=stride, padding=padding, dilation=dilation),
             nn.ReLU(),
-            nn.Conv1d(4, 8, 5, stride=stride, padding=padding, dilation=dilation),
+            nn.Conv1d(4, 8, 100, stride=stride, padding=padding, dilation=dilation),
             nn.ReLU(),
-            nn.Conv1d(8, 16, 5, stride=stride, padding=padding, dilation=dilation),
+            nn.Conv1d(8, 16, 100, stride=stride, padding=padding, dilation=dilation),
             nn.ReLU(),
             nn.MaxPool1d(2),
         ]
@@ -66,7 +66,7 @@ class ConvNet(nn.Module):
         self.cnn = nn.Sequential(*self.layers)
         fc_size = int(((input_size + 2 * padding - dilation * (kernel_size - 1) - 1) / stride) + 1)
         # self.fc = nn.Linear(2540, 50)
-        self.fc = nn.Linear(59904, output_size)
+        self.fc = nn.Linear(57616, output_size)
 
     def forward(self, x):
         x = x.float()
