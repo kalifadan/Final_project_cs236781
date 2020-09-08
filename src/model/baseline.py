@@ -24,7 +24,8 @@ class Baseline(nn.Module):
         output_coef = 1 + int(add_brnn)
         self.attention = SoftmaxAttention(output_coef * hidden_size)
         self.fc = nn.Linear(output_coef * hidden_size, 2)
-        # self.apply(Baseline.init_weights)
+        self.brnn_fc = nn.Linear(output_coef * hidden_size * seq_len, 2)
+# self.apply(Baseline.init_weights)
 
     @staticmethod
     def init_weights(m: nn.Module):
@@ -51,8 +52,10 @@ class Baseline(nn.Module):
         print('After CNN=', out.shape)
         out = self.brnn(out)
         print('After BRNN=', out.shape, '\n', out)
-        out = self.attention(out)
-        out = out.squeeze(1)
-        out = self.fc(out)
+        # out = self.attention(out)
+        # out = out.squeeze(1)
+        # out = self.fc(out)
+        out = out.transpose(0, 1)
+        out = self.brnn_fc(out.flatten(start_dim=1))
         # out = self.fc(out.squeeze(0))
         return out
