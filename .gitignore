@@ -3,4 +3,6 @@ data/files
 data/mitdb
 data/images
 data/new
+data/afdb
 src/.ipynb_checkpoints
+src/temp/
