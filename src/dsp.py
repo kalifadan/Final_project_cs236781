@@ -5,51 +5,25 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
 import numpy as np
 from matplotlib import pyplot as plt
 from scipy import signal as sp
-
 import pycwt as wavelet
-from pycwt.helpers import find
 
 
-def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name, levels=None):
-    if levels is None:
-        levels = [-0.125, -0.0625, 0.0625, 0.125, 0.25, 0.5, 1, 2, 4, 8, 16]
+def plot_wavelet_decomposition(time, signal, frequencies, power, wavelet_name):
 
-    period = 1 / frequencies
     # Prepare the figure
     plt.close('all')
     plt.ioff()
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 7))
-
-    # First sub-plot, the original time series anomaly and inverse wavelet
-    # transform.
+    # First sub-plot, the original time series anomaly.
     ax1.plot(time, signal, 'g', linewidth=1, label='Original signal')
-    # ax1.plot(time, iwave, '-r', linewidth=1, label='Inverse wavelet')
     ax1.legend()
     ax1.set_title('a) Original ECG Signal')
     ax1.set_ylabel(r'Voltage [mV]')
 
-    # Second sub-plot, the normalized wavelet power spectrum and significance
-    # level contour lines and cone of influece hatched area. Note that period
-    # scale is logarithmic.
-    # levels = np.logspace(-10, 10, num=20, base=2)
-
-    print('Time: ', time.shape)
-    print('Frequencies: ', frequencies.shape)
-    print('Power: ', power.shape)
+    # Second subplot, the wavelet power spectrum
     ax2.contourf(time, frequencies, np.log2(power), extend='both', cmap=plt.cm.gray)
-    extent = [time.min(), time.max(), 0, max(period)]
-    # ax2.fill(np.concatenate([t, t[-1:] + dt, t[-1:] + dt,
-    #                            t[:1] - dt, t[:1] - dt]),
-    #         np.concatenate([np.log2(coi), [1e-9], np.log2(period[-1:]),
-    #                            np.log2(period[-1:]), [1e-9]]),
-    #         'k', alpha=0.3, hatch='x')
     ax2.set_title('b) Wavelet Power Spectrum ({})'.format(wavelet_name))
     ax2.set_ylabel('Frequency [Hz]')
-    #
-    # y_ticks = np.arange(np.ceil(np.log2(period.min())), np.ceil(np.log2(period.max())))
-    # print(y_ticks)
-    # ax2.set_yticks(np.log2(y_ticks))
-    # ax2.set_yticklabels(y_ticks)
     plt.show()
 
 
@@ -67,26 +41,21 @@ def wavelet_figure_to_numpy_image(time, signal, frequencies, power, width, heigh
 
 
 def wavelet_decompose_power_spectrum(signal, wl=None,
-                                     significance_level=0.9,
                                      resample=None,
                                      resample_freq=None,
                                      sampling_frequency=None,
                                      filter_frequency=40,
-                                     dt=1,
-                                     s0=8.3,
-                                     dj=1/15,
-                                     J=19):
+                                     dt=1):
     """
-
-    :param signal:
-    :param wl:
-    :param significance_level:
-    :param resample:
-    :param dt: Sampling interval
-    :param s0: Starting scale
-    :param dj: sub-octaves per octaves
-    :param J: Seven powers of two with dj sub-octaves
-    :return:
+    :param signal: The signal, a numpy array or PyTorch Tensor of shape (N,)
+    :param wl: Provided Wavelet (see pycwt documentation for available wavelets)
+    :param resample: Downsample factor for signal time series.
+    :param resample_freq: Downsample factor for wavelet frequency plane.
+    :param sampling_frequency: Sampling frequency to be used by the butterworth filter, if provided.
+    :param filter_frequency: Filter frequency for the butterworth filter
+    :param dt: Sampling interval Sampling interval for the continuous wavelet transform.
+    :return: Resampled time series, Resamples frequency series, power spectrum of shape (Frequencies, Time),
+    Original signal.
     """
     if resample is not None:
         signal = sp.resample(signal, signal.shape[0] // resample)
@@ -100,34 +69,22 @@ def wavelet_decompose_power_spectrum(signal, wl=None,
         signal = sp.sosfilt(sos, signal)
 
     time = np.arange(signal.shape[0])
-    N = time.shape[0]
 
-    p = np.polyfit(time, signal, 1)
-    dat_notrend = signal - np.polyval(p, time)
-    std = dat_notrend.std()  # Standard deviation
-    dat_norm = dat_notrend / std  # Normalized dataset
+    # p = np.polyfit(time, signal, 1)
+    # dat_notrend = signal - np.polyval(p, time)
+    # std = dat_notrend.std()  # Standard deviation
+    # dat_norm = dat_notrend / std  # Normalized dataset
 
     if wl is None:
         wl = wavelet.Morlet(6)
 
-    # TODO Check these hyperparams
-    # alpha, _, _ = wavelet.ar1(signal)  # Lag-1 autocorrelation for red noise
-
-    # wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(signal, dt, dj, s0, J, wl)
     wave, scales, freqs, coi, fft, fftfreqs = wavelet.cwt(signal, dt, wavelet=wl)
-    # iwave = wavelet.icwt(wave, scales, dt, dj, wl) * std
     power = (np.abs(wave)) ** 2
-    fft_power = np.abs(fft) ** 2
 
     power /= scales[:, None]
-
-    # signif, fft_theor = wavelet.significance(1.0, dt, scales, 0, alpha, significance_level=significance_level, wavelet=wl)
-    # sig_percentile = np.ones([1, N]) * signif[:, None]
-    # sig_percentile = power / sig_percentile
 
     if resample_freq is not None:
         power = sp.resample(power, num=resample_freq, axis=0)
         freqs = sp.resample(freqs, num=resample_freq)
 
-    # period = 1 / freqs
     return time, np.array(freqs), power, signal

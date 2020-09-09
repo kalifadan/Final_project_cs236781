@@ -1,20 +1,14 @@
 import os
-import time
-
 import torch
 import wfdb
 import dsp
 import numpy as np
 from torch.utils.data import Dataset
-import matplotlib.pyplot as plt
-from pycwt import Morlet
 from tqdm import tqdm
 from wfdb import processing as wfdb_processing
-from collections import Counter
 
 
 def read_record(data_path, header, offset=0, sample_size_seconds=30, samples_per_second=250):
-    # Sample configuration
     sample_size = sample_size_seconds * samples_per_second
 
     max_sampto = header.sig_len
@@ -51,25 +45,31 @@ def read_records(dataset_name, data_path, sample_size_seconds=30, samples_per_se
         if num_records is not None and total_read_records == num_records:
             break
 
-    # for l in labels:
-    #     print(Counter(l))
-    labels = np.array([1 if '(AFIB' in key or '(N' in key or '(AFL' in key or '(J' in key else 0 for key in labels])
-    # print(labels)
+    labels = np.array([1 if '(AFIB' in key else 0 for key in labels])
     return samples, labels
 
 
 def split_sample(record: wfdb.Record, sample_size_seconds=30, samples_per_second=250, device=None):
     sample: torch.Tensor = torch.tensor(record.p_signal) \
-        .to(device) \
         .transpose(0, 1)[0]
     chunk_size = sample_size_seconds * samples_per_second
     return sample.view(-1, chunk_size)
 
 
 class AFECGDataset(Dataset):
-    """Atrial Fibrilation ECG dataset"""
+    """Atrial Fibrillation ECG dataset"""
 
     def __init__(self, dataset_name, data_path, samples_per_second=250, sample_size_seconds=30, seq_len=20, wavelet=None):
+        """
+        Initialize the dataset
+        :param dataset_name: The dataset name (as defined in the MIT-BIH index).
+        Example: 'afdb' for the MIT-BIH AF Dataset.
+        :param data_path: Path to the raw files of the dataset
+        :param samples_per_second: Frequency of sampling in the dataset examples (in Hz).
+        :param sample_size_seconds: The window size to read each time
+        :param seq_len: The length of each sequence of samples
+        :param wavelet: An optional WaveletTransform object for transforming the dataset
+        """
         super().__init__()
         self.dataset_name = dataset_name
         self.data_path = data_path
@@ -79,7 +79,6 @@ class AFECGDataset(Dataset):
         self.samples = []
         self.labels = []
         self.to_wavelet = wavelet
-        # self.transform_samples = [split_sample(sample) for sample in self.samples]
 
     def __len__(self):
         return len(self.labels)
@@ -87,12 +86,11 @@ class AFECGDataset(Dataset):
     def __getitem__(self, index):
         if type(index) == int and index < 0 or index > len(self.samples):
             return None
-        # samples_per_interval = split_sample(self.samples[index])
         return self.samples[index], self.labels[index]
 
     def load(self, backup_path=None, num_records=None, checkpoint_interval=100):
         samples_per_second = self.samples_per_second
-        sample_size_seconds = self.sample_size_seconds * self.seq_len
+        total_sample_size_seconds = self.sample_size_seconds * self.seq_len
         to_wavelet = self.to_wavelet
 
         if backup_path is not None:
@@ -109,15 +107,16 @@ class AFECGDataset(Dataset):
             self.samples, self.labels = data['samples'], data['labels']
             return
 
+        print('Reading records. sample size={}, frequency={}'.format(total_sample_size_seconds, samples_per_second))
         data, labels = read_records(self.dataset_name, self.data_path,
-                                    sample_size_seconds=sample_size_seconds,
+                                    sample_size_seconds=total_sample_size_seconds,
                                     samples_per_second=samples_per_second, num_records=num_records)
         labels = torch.tensor(labels)
 
         print(labels.shape)
         print(len(data))
 
-        data = [split_sample(sample, sample_size_seconds) for sample in data]
+        data = [split_sample(sample, self.sample_size_seconds) for sample in data]
         count = len(data)
         transformed_data = []
 
@@ -250,17 +249,17 @@ class WaveletTransform(object):
 
     def __call__(self, sample):
         """
-        Transform a single ECG signal into a 3-channel tensor image of a wavelet power spectrogram.
+        Transform a single ECG signal into a single-channel tensor image of a wavelet power spectrogram.
         :param sample: The sample, an array of size (N,) where N is the window size (in samples)
-        :return: A Tensor of size (H, W) where WxH is the image size and each point is the power value of the specturm
-        at the given time a frequence (after downsampling)
+        :return: A Tensor of size (H, W) where WxH is the image size and each point is the power value of the spectrum
+        at the given time a frequency (after downsampling)
         """
         signal = sample
-        time, frequencies, power, new_signal = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet,
-                                                                                    resample=self.resample, resample_freq=self.resample_freq)
-        # np_image = dsp.wavelet_figure_to_numpy_image(time, signal, frequencies, power, self.size[0], self.size[1], self.dpi, levels=levels)
-        # t = torch.from_numpy(np_image)
-        plt.close()
+        time, \
+        frequencies, \
+        power, \
+        new_signal = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet, resample=self.resample,
+                                                          resample_freq=self.resample_freq)
         t = torch.tensor(power)
         return t
 

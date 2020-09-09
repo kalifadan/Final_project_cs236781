@@ -23,6 +23,7 @@ class ConvNet(nn.Module):
         #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
         #     nn.ReLU(),
         # ]
+        # print('IC', in_channels)
         return [
             nn.Conv2d(in_channels, 8, kernel_size=(32, 64)),
             nn.ReLU(),
@@ -126,15 +127,15 @@ class SoftmaxAttention(nn.Module):
 
         X = X.transpose(0, 1)  # [B, T, N]
         # weight is [1, N]
-        print('W_att=', self.weight.shape)
-        print('X_att=', X.shape)
+        # print('W_att=', self.weight.shape)
+        # print('X_att=', X.shape)
         alignment_scores = X.matmul(self.weight.t())  # [B, T, 1]
         alignment_scores = alignment_scores.squeeze(-1)  # [B, T]
-        # print('alignment_scores=', alignment_scores)
+        # print('alignment_scores=', alignment_scores.shape)
 
         # alpha [B, T]
         attn_weights = nn.functional.softmax(alignment_scores, dim=1)
-        print('attn_weights=', attn_weights)
+        # print('attn_weights=', attn_weights)
 
         # h_att [B, 1, T] bmm [B, T, N] -> [B, 1, N]
         return torch.bmm(attn_weights.unsqueeze(-2), X)

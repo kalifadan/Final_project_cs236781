@@ -1,10 +1,11 @@
 import torch
-from model.blocks import ConvNet, BRNN, SoftmaxAttention
+from model.blocks import ConvNet, SoftmaxAttention
+from model.tcn import TemporalConvNet
 from torch import nn
 
 
-class Baseline(nn.Module):
-    def __init__(self, seq_len=20, add_brnn=True, hidden_size=100):
+class TCNNet(nn.Module):
+    def __init__(self, seq_len=20):
         super().__init__()
         self.seq_len = seq_len
 
@@ -16,14 +17,10 @@ class Baseline(nn.Module):
 
         self.cnn_layers = lst
 
-        self.support_brnn = add_brnn
-        if add_brnn:
-            self.brnn = BRNN(50, hidden_size, seq_len)
-
-        output_coef = 1 + int(add_brnn)
-        self.attention = SoftmaxAttention(output_coef * hidden_size)
-        self.fc = nn.Linear(output_coef * hidden_size, 2)
-        self.brnn_fc = nn.Linear(output_coef * hidden_size * seq_len, 2)
+        output_size = 30  # TODO Figure this out
+        self.tcn = TemporalConvNet(seq_len, 1)
+        self.attention = SoftmaxAttention(seq_len * output_size)
+        self.fc = nn.Linear(output_size, 2)
 
     def forward(self, X):
         """
@@ -33,7 +30,7 @@ class Baseline(nn.Module):
         """
         out = [self.cnn_layers[i](X[:, i, :].float().unsqueeze(1)) for i in range(self.seq_len)]
         out = torch.stack(out)
-        out = self.brnn(out)
+        out = self.tcn(out)
         out = self.attention(out)
         out = out.squeeze(1)
         out = self.fc(out)
