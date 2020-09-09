@@ -55,28 +55,21 @@ class ConvNet(nn.Module):
             nn.MaxPool1d(2),
         ]
 
-    # TODO Remove fc_size
     def __init__(self, in_channels=1, batch=True, output_size=50):
         super().__init__()
         self.batch = batch
         self.layers = ConvNet._conv_net2d(in_channels)
         self.cnn = nn.Sequential(*self.layers)
         self.fc = nn.Linear(14880, output_size)
-        # self.fc = nn.Linear(48260, output_size)
 
     def forward(self, x):
         x = x.float()
         if not self.batch:
             x = x.unsqueeze(1)
 
-        # print('Before CNN=', x)
         out = self.cnn(x)
-        # print('After conv: ', out)
-        # print('After CNN=', out.shape)
         out = out.flatten(start_dim=1)
-        # print('Before FC=', out.shape)
         out = self.fc(out)
-        # print('After conv-fc: ', out)
         return out
 
 
@@ -97,23 +90,20 @@ class BRNN(nn.Module):
         return output
 
 
-r"""
+attention_desc = r"""
 Notations:
-
 * $Y = \left[ y_1, \ldots, y_T \right]$ – the input matrix of size $\left( N \times T \right)$, where $N$ is the number of features in a single output vector of the BRNN
-
 * $w_\mathrm{att}$ – The parameters of the attention model, of size $\left( N \times 1 \right)$, where $N$ is the number of features in a single output vector of the BRNN
-
 * $\alpha$ – The attention weights, given as $\alpha = \mathrm{softmax} \left( w_\mathrm{att}^T Y \right)$. This is an element-wise softmax, where the output size of $\alpha$ is $\left( 1 \times T \right)$
-
 * $h_\mathrm{att}$ – Output of the attention mechanism, given by $h_\mathrm{att} = Y \alpha^T$, of size $\left( N \times 1 \right)$, i.e. a vector of $N$ features.
 """
+
+
 class SoftmaxAttention(nn.Module):
     def __init__(self, input_size):
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(1, input_size), requires_grad=True)
         torch.nn.init.xavier_uniform_(self.weight)
-        # print(self.weight.data)
 
     def forward(self, X):
         """
@@ -127,15 +117,10 @@ class SoftmaxAttention(nn.Module):
 
         X = X.transpose(0, 1)  # [B, T, N]
         # weight is [1, N]
-        # print('W_att=', self.weight.shape)
-        # print('X_att=', X.shape)
         alignment_scores = X.matmul(self.weight.t())  # [B, T, 1]
         alignment_scores = alignment_scores.squeeze(-1)  # [B, T]
-        # print('alignment_scores=', alignment_scores.shape)
 
         # alpha [B, T]
         attn_weights = nn.functional.softmax(alignment_scores, dim=1)
-        # print('attn_weights=', attn_weights)
-
         # h_att [B, 1, T] bmm [B, T, N] -> [B, 1, N]
         return torch.bmm(attn_weights.unsqueeze(-2), X)
