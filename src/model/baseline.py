@@ -5,13 +5,13 @@ import torch.nn.functional as F
 
 
 class Baseline(nn.Module):
-    def __init__(self, seq_len=20, input_size=(375, 20), add_brnn=True, hidden_size=100):
+    def __init__(self, seq_len=20, add_brnn=True, hidden_size=100):
         super().__init__()
         self.seq_len = seq_len
 
         lst = []
         for i in range(seq_len):
-            conv = ConvNet(input_size)
+            conv = ConvNet()
             lst.append(conv)
             self.add_module('conv{}'.format(i), conv)
 

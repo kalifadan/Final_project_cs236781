@@ -55,9 +55,8 @@ class ConvNet(nn.Module):
         ]
 
     # TODO Remove fc_size
-    def __init__(self, size, in_channels=1, batch=True, output_size=50):
+    def __init__(self, in_channels=1, batch=True, output_size=50):
         super().__init__()
-        self.width, self.height = size
         self.batch = batch
         self.layers = ConvNet._conv_net2d(in_channels)
         self.cnn = nn.Sequential(*self.layers)

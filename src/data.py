@@ -113,6 +113,10 @@ class AFECGDataset(Dataset):
                                     sample_size_seconds=sample_size_seconds,
                                     samples_per_second=samples_per_second, num_records=num_records)
         labels = torch.tensor(labels)
+
+        print(labels.shape)
+        print(len(data))
+
         data = [split_sample(sample, sample_size_seconds) for sample in data]
         count = len(data)
         transformed_data = []
