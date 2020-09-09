@@ -7,18 +7,25 @@ import tqdm
 
 
 def train(model, dataset, config, device=None):
-    # total_size = len(x_train)
-    # test.assertEqual(total_size, len(y_train))
+    """
+    Train a given model on a given dataset with configuration options.
+    :param model: The model to train.
+    :param dataset: The dataset
+    :param config: Configuration parameters (outlined below)
+    :param device: CUDA/CPU device for tensor operations
+    :return: Tuple of (loss_list, acc_list)
+    """
 
-    # Loss and optimizer
+    # Configuration parameters
     num_epochs = config.get('num_epochs', 10)
     num_workers = config.get('num_workers', 0)
     batch_size = config.get('batch_size', 1)
     learning_rate = config.get('learning_rate', 0.001)
     weight_decay = config.get('weight_decay', 0.01)
     is_notebook = config.get('is_notebook', False)
-    # class_weights = config.get('class_weights', None)
-    # criterion = nn.CrossEntropyLoss(weight=class_weights)
+    verbose = config.get('verbose', False)
+
+    # Loss and optimizer
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
@@ -42,39 +49,24 @@ def train(model, dataset, config, device=None):
         for batch_data, batch_labels in r_inner:
             optimizer.zero_grad()
             X, y_true = batch_data.to(device), batch_labels.to(device)
-            # data = Variable(batch_data)
-            # labels = Variable(batch_labels)
-            # batch_data.requires_grad = True
-            # for b in batch_data:
-            #     print(b.sum().item(), end=', ')
-            # print('Batch: ', data.shape)
+
+            # Forward-propagate
             output = model(X)
 
-            # print('Output:', output[:10])
-            # print('Labels:', batch_labels)
-            # print(labels.shape)
-
+            # Calculate loss
             loss = criterion(output, y_true)
 
-            # if iteration % 8 == 0:
-            #     print('Loss: ', loss)
-
-            # Backprop and perform optimisation
+            # Back-propagate and perform optimisation
             loss_list.append(loss.item())
             loss.backward()
-            # print('dx/dy =', autograd.grad(loss, batch_data))
             optimizer.step()
 
-            # Track the accuracy
-            #         probability = torch.distributions.categorical.Categorical(output)
-            #         prediction = probability.sample()
             _, prediction = torch.max(output.data, 1)
 
             correct = (prediction == batch_labels).sum().item()
-            # if iteration % 8 == 0:
-            print('Ground truth:', batch_labels[:100])
-            print('Prediction:', prediction[:100])
-            #     print('Correct: {}'.format(correct))
+            if verbose:
+                print('Ground truth:', batch_labels[:100])
+                print('Prediction:', prediction[:100])
             acc += correct
             iteration += 1
             r_inner.set_description('Current loss: {:.2f}'.format(loss_list[-1]))
@@ -84,12 +76,21 @@ def train(model, dataset, config, device=None):
         r.set_description('Accuracy: {:.2f}%'.format(acc * 100))
         print('Epoch [{}/{}], Accuracy: {:.2f}%'.format(epoch + 1, num_epochs, acc * 100))
 
+    return loss_list, acc_list
+
 
 def test(model, dataset, config):
+    """
+    Test a pretrained model on a given test dataset
+    :param model: The model to train.
+    :param dataset: The dataset
+    :param config: Configuration parameters (outlined below)
+    """
     print('Testing model...')
-    # Loss and optimizer
-    num_workers = config['num_workers']
-    is_notebook = config['is_notebook']
+    # Configuration parameters
+    num_workers = config.get('num_workers', 0)
+    is_notebook = config.get('is_notebook', False)
+    verbose = config.get('verbose', False)
 
     # Preparation
     dataloader = DataLoader(dataset, num_workers=num_workers)
@@ -100,16 +101,19 @@ def test(model, dataset, config):
     total_size = len(dataset)
     iterator = iter(dataloader)
     y_pred = []
-    for batch_data, batch_labels in tq(iterator, desc='Example'):
-        output = model(batch_data)
-        # print('Output: ', output[batch_labels == 1], batch_labels[batch_labels == 1])
+    with torch.no_grad():
+        for batch_data, batch_labels in tq(iterator, desc='Example'):
+            output = model(batch_data)
 
-        # Track the accuracy
-        prediction = output.argmax(dim=1).item()
-        y_pred += [prediction]
-        correct = (prediction == batch_labels).sum().item()
-        # print('Correct: {}'.format(correct))
-        acc += correct
+            # Track the accuracy
+            prediction = output.argmax(dim=1).item()
+            y_pred += [prediction]
+            correct = (prediction == batch_labels).sum().item()
+            acc += correct
+
+            if verbose:
+                print('Ground truth:', batch_labels[:100])
+                print('Prediction:', prediction[:100])
 
     acc = acc / total_size
     print('Accuracy: {:.2f}%'.format(acc * 100))
