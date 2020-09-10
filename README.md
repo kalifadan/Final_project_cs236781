@@ -50,13 +50,31 @@ See code for parameters and usage documentation
 signal processing using *scipy* and *pycwt*.
 * [training.py](src/training.py): Contains train/test functions for running the experiments.
 
-## Notebooks
+### Notebooks
 
 This project includes 2 notebooks with several experiments on utilities:
 
 1. [Input.ipynb](src/Input.ipynb): Contains several examples on using the data and Wavelet decomposition implemented 
 in this project
 2. [Model.ipynb](src/Model.ipynb): Contains data loading and train/test experiments for baseline and advanced models.
+
+## Experiments
+
+The experiments were run on a single-GPU architecture (Nvidia GPU with CUDA).
+ 
+To reproduce the results, start by running `jupyter-lab` connected to the GPU device.
+
+#### Slurm
+For slurm, you can do this with the following script (`jupyter-lab.sh`):
+```bash
+#!/bin/bash
+unset XDG_RUNTIME_DIR
+jupyter notebook --no-browser --ip=$(hostname -I) --port-retries=100
+```
+
+Then, summon a job for the notebook: `srun -c2 --gres=gpu:1 --pty ./jupyter-lab.sh`.
+
+Experiments with the hyperparameters are available via the `Model` notebook.
 
 ## Acknowledgements
 
