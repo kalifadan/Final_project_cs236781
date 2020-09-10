@@ -76,8 +76,3 @@ Then, summon a job for the notebook: `srun -c2 --gres=gpu:1 --pty ./jupyter-lab.
 
 Experiments with the hyperparameters are available via the `Model` notebook.
 
-## Acknowledgements
-
-TBD
-
-
