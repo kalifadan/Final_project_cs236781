@@ -101,6 +101,10 @@ Notations:
 
 class SoftmaxAttention(nn.Module):
     def __init__(self, input_size):
+        """
+        Initialize the attention model
+        :param input_size: Number of inputs to accept. during forward propagation
+        """
         super().__init__()
         self.weight = nn.Parameter(torch.zeros(1, input_size), requires_grad=True)
         torch.nn.init.xavier_uniform_(self.weight)

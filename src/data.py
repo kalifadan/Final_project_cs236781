@@ -255,11 +255,10 @@ class WaveletTransform(object):
         at the given time a frequency (after downsampling)
         """
         signal = sample
-        time, \
-        frequencies, \
-        power, \
-        new_signal = dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet, resample=self.resample,
-                                                          resample_freq=self.resample_freq)
+        # TODO Move static declaration outside (250)
+        time, frequencies, power, new_signal = \
+            dsp.wavelet_decompose_power_spectrum(signal, wl=self.wavelet, resample=self.resample,
+                                                 resample_freq=self.resample_freq)
         t = torch.tensor(power)
         return t
 

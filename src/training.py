@@ -1,3 +1,5 @@
+import os
+
 import torch
 from torch import nn, autograd
 from torch.autograd import Variable
@@ -63,7 +65,7 @@ def train(model, dataset, config, device=None):
 
             _, prediction = torch.max(output.data, 1)
 
-            correct = (prediction == batch_labels).sum().item()
+            correct = (prediction == y_true).sum().item()
             if verbose:
                 print('Ground truth:', batch_labels[:100])
                 print('Prediction:', prediction[:100])
@@ -79,7 +81,7 @@ def train(model, dataset, config, device=None):
     return loss_list, acc_list
 
 
-def test(model, dataset, config):
+def test(model, dataset, config, device=None):
     """
     Test a pretrained model on a given test dataset
     :param model: The model to train.
@@ -103,18 +105,37 @@ def test(model, dataset, config):
     y_pred = []
     with torch.no_grad():
         for batch_data, batch_labels in tq(iterator, desc='Example'):
-            output = model(batch_data)
+            X, y_true = batch_data.to(device), batch_labels.to(device)
+            output = model(X)
 
             # Track the accuracy
             prediction = output.argmax(dim=1).item()
             y_pred += [prediction]
-            correct = (prediction == batch_labels).sum().item()
+            correct = (prediction == y_true).sum().item()
             acc += correct
 
             if verbose:
-                print('Ground truth:', batch_labels[:100])
-                print('Prediction:', prediction[:100])
+                print('Ground truth:', batch_labels[0])
+                print('Prediction:', prediction)
 
     acc = acc / total_size
     print('Accuracy: {:.2f}%'.format(acc * 100))
     return y_pred, acc
+
+
+def save_model(model, config, checkpoint_file, checkpoint_dir='./checkpoints'):
+    path = os.path.join(checkpoint_dir, checkpoint_file)
+    if not os.path.exists(checkpoint_dir):
+        os.makedirs(checkpoint_dir)
+    torch.save({
+        'state_dict': model.state_dict(),
+        'config': config
+    }, path)
+
+
+def load_model(model: nn.Module, checkpoint_file, checkpoint_dir='./checkpoints'):
+    path = os.path.join(checkpoint_dir, checkpoint_file)
+    loaded = torch.load(path)
+    state_dict = loaded['state_dict']
+    model.load_state_dict(state_dict)
+    return model, loaded['config']

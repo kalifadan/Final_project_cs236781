@@ -10,17 +10,18 @@ class TCNNet(nn.Module):
         self.seq_len = seq_len
 
         lst = []
+        cnn_output_size = 50
         for i in range(seq_len):
-            conv = ConvNet()
+            conv = ConvNet(output_size=cnn_output_size)
             lst.append(conv)
             self.add_module('conv{}'.format(i), conv)
 
         self.cnn_layers = lst
 
-        output_size = 30  # TODO Figure this out
-        self.tcn = TemporalConvNet(seq_len, 1)
-        self.attention = SoftmaxAttention(seq_len * output_size)
-        self.fc = nn.Linear(output_size, 2)
+        tcn_channels = [8, 8]
+        self.tcn = TemporalConvNet(seq_len, tcn_channels)
+        # self.attention = SoftmaxAttention(cnn_output_size)
+        self.fc = nn.Linear(cnn_output_size * tcn_channels[-1], 2)
 
     def forward(self, X):
         """
@@ -30,8 +31,12 @@ class TCNNet(nn.Module):
         """
         out = [self.cnn_layers[i](X[:, i, :].float().unsqueeze(1)) for i in range(self.seq_len)]
         out = torch.stack(out)
+        out = out.transpose(0, 1)
+        # print('After CNN: ', out.shape)
         out = self.tcn(out)
-        out = self.attention(out)
-        out = out.squeeze(1)
+        # print('After TCN: ', out.shape)
+        # out = self.attention(out)
+        out = out.flatten(start_dim=1)
         out = self.fc(out)
+        print(out)
         return out
