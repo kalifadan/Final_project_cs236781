@@ -23,7 +23,6 @@ class ConvNet(nn.Module):
         #     nn.Conv2d(10, 10, kernel_size=(4, 21)),
         #     nn.ReLU(),
         # ]
-        # print('IC', in_channels)
         return [
             nn.Conv2d(in_channels, 8, kernel_size=(32, 64)),
             nn.ReLU(),

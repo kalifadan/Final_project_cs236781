@@ -32,10 +32,7 @@ class TCNNet(nn.Module):
         out = [self.cnn_layers[i](X[:, i, :].float().unsqueeze(1)) for i in range(self.seq_len)]
         out = torch.stack(out)
         out = out.transpose(0, 1)
-        # print('After CNN: ', out.shape)
         out = self.tcn(out)
-        # print('After TCN: ', out.shape)
-        # out = self.attention(out)
         out = out.flatten(start_dim=1)
         out = self.fc(out)
         print(out)
