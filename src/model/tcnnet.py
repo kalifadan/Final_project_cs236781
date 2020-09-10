@@ -35,5 +35,4 @@ class TCNNet(nn.Module):
         out = self.tcn(out)
         out = out.flatten(start_dim=1)
         out = self.fc(out)
-        print(out)
         return out

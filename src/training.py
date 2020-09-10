@@ -55,6 +55,11 @@ def train(model, dataset, config, device=None):
             # Forward-propagate
             output = model(X)
 
+            if any(torch.isnan(output)):
+                for name, param in model.named_parameters():
+                    if param.requires_grad:
+                        print(name, param.data)
+
             # Calculate loss
             loss = criterion(output, y_true)
 
