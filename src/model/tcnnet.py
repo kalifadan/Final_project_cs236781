@@ -5,7 +5,7 @@ from torch import nn
 
 
 class TCNNet(nn.Module):
-    def __init__(self, seq_len=20):
+    def __init__(self, seq_len=20, kernel_size=8, dropout=0):
         super().__init__()
         self.seq_len = seq_len
 
@@ -18,8 +18,8 @@ class TCNNet(nn.Module):
 
         self.cnn_layers = lst
 
-        tcn_channels = [8, 8]
-        self.tcn = TemporalConvNet(seq_len, tcn_channels)
+        tcn_channels = [16]
+        self.tcn = TemporalConvNet(seq_len, tcn_channels, kernel_size=kernel_size, dropout=dropout)
         # self.attention = SoftmaxAttention(cnn_output_size)
         self.fc = nn.Linear(cnn_output_size * tcn_channels[-1], 2)
 
